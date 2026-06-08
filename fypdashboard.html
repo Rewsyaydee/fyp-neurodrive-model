@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="neurodrive-version" content="2.0-ai-tts-2026">
+    <title>NeuroDrive — EEG Anxiety Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #080b14;
+            --bg-secondary: #0e1220;
+            --bg-card: rgba(18, 24, 42, 0.65);
+            --bg-card-hover: rgba(28, 36, 60, 0.8);
+            --border-color: rgba(108, 132, 255, 0.12);
+            --border-hover: rgba(108, 132, 255, 0.3);
+            --text-primary: #e8ecf4;
+            --text-secondary: #8892b0;
+            --text-muted: #4a5278;
+            --accent-1: #6c84ff;
+            --accent-2: #a78bfa;
+            --accent-3: #f472b6;
+            --accent-green: #34d399;
+            --accent-red: #f87171;
+            --accent-yellow: #fbbf24;
+            --accent-gradient: linear-gradient(135deg, #6c84ff, #a78bfa, #f472b6);
+            --glow-accent: rgba(108, 132, 255, 0.25);
+            --glow-pink: rgba(244, 114, 182, 0.2);
+            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --radius-sm: 12px;
+            --radius-md: 20px;
+            --radius-lg: 28px;
+            --radius-xl: 36px;
+        }
+
+        body.light-mode {
+            --bg-primary: #f0f2f8;
+            --bg-secondary: #e4e7f0;
+            --bg-card: rgba(255, 255, 255, 0.75);
+            --bg-card-hover: rgba(255, 255, 255, 0.92);
+            --border-color: rgba(108, 132, 255, 0.15);
+            --border-hover: rgba(108, 132, 255, 0.35);
+            --text-primary: #1a1f36;
+            --text-secondary: #5a6388;
+            --text-muted: #9ca3c0;
+            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            transition: background 0.4s ease, color 0.4s ease;
+            overflow-x: hidden;
+        }
+
+        .bg-orb {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.35;
+            animation: orbFloat 20s ease-in-out infinite alternate;
+        }
+
+        .orb:nth-child(1) {
+            width: 700px; height: 700px;
+            background: var(--glow-accent);
+            top: -200px; left: -200px;
+            animation-duration: 25s;
+        }
+
+        .orb:nth-child(2) {
+            width: 500px; height: 500px;
+            background: var(--glow-pink);
+            bottom: -150px; right: -150px;
+            animation-duration: 20s;
+            animation-delay: -5s;
+        }
+
+        .orb:nth-child(3) {
+            width: 400px; height: 400px;
+            background: rgba(167, 139, 250, 0.2);
+            bottom: 20%; left: 50%;
+            animation-duration: 30s;
+            animation-delay: -10s;
+        }
+
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(60px, -40px) scale(1.15); }
+        }
+
+        .app {
+            width: 100%;
+            max-width: 1400px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            backdrop-filter: blur(20px);
+            padding: 28px 32px 32px;
+            box-shadow: var(--shadow-card);
+            transition: background 0.4s ease, border-color 0.4s ease;
+        }
+
+        /* --- HEADER --- */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .brand { display: flex; align-items: center; gap: 14px; }
+
+        .brand-logo {
+            width: 40px; height: 40px;
+            border-radius: var(--radius-sm);
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #fff;
+            letter-spacing: -1px;
+        }
+
+        .brand h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .brand .sub {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 100px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            font-size: 0.75rem;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .status-badge .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            transition: background 0.3s ease;
+        }
+
+        .status-badge .dot.live {
+            background: var(--accent-green);
+            animation: pulseDot 1.5s ease-in-out infinite;
+        }
+
+        .status-badge .dot.waiting {
+            background: var(--accent-yellow);
+            animation: pulseDot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); }
+            50% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+        }
+
+        .status-badge .dot.waiting {
+            animation-name: pulseDotYellow;
+        }
+
+        @keyframes pulseDotYellow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
+            50% { box-shadow: 0 0 0 6px rgba(251, 191, 36, 0); }
+        }
+
+        .btn-icon {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-size: 1.1rem;
+        }
+
+        .btn-icon:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        /* --- LAYOUT --- */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 24px;
+        }
+
+        @media (max-width: 960px) {
+            .grid { grid-template-columns: 1fr; }
+            .app { padding: 16px; }
+            .header { flex-direction: column; align-items: flex-start; }
+            .header-right { width: 100%; justify-content: flex-end; }
+        }
+
+        /* --- MAIN STAGE --- */
+        .stage {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .anxiety-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            transition: all 0.3s ease;
+        }
+
+        .anxiety-panel:hover {
+            border-color: var(--border-hover);
+            background: var(--bg-card-hover);
+        }
+
+        .gauge-wrap {
+            flex-shrink: 0;
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+
+        .gauge-wrap canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .gauge-center {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .gauge-value {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .gauge-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .anxiety-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .anxiety-info .state {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .anxiety-info .state.low { color: var(--accent-green); }
+        .anxiety-info .state.medium { color: var(--accent-yellow); }
+        .anxiety-info .state.high { color: var(--accent-red); }
+        .anxiety-info .state.no-signal { color: var(--text-muted); }
+
+        .anxiety-info .meta {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .anxiety-info .meta span {
+            display: inline-block;
+            margin-right: 16px;
+        }
+
+        .anxiety-info .meta .label-pill {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 100px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+        }
+
+        .label-pill.qeeg { border-color: rgba(108,132,255,0.4); color: #6c84ff; }
+        .label-pill.camber_rf { border-color: rgba(52,211,153,0.4); color: #34d399; }
+        .label-pill.warmup { border-color: rgba(251,191,36,0.4); color: #fbbf24; }
+
+        /* --- WAVEFORM --- */
+        .waveform-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            height: 160px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .waveform-panel:hover {
+            border-color: var(--border-hover);
+        }
+
+        .waveform-panel canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .waveform-panel .wave-label {
+            position: absolute;
+            top: 12px;
+            left: 20px;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        /* --- BAND METERS --- */
+        .band-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .band-grid { grid-template-columns: repeat(2, 1fr); }
+            .anxiety-panel { flex-direction: column; text-align: center; }
+        }
+
+        .band-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .band-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .band-card .bar-track {
+            height: 4px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            margin: 10px 0 8px;
+            overflow: hidden;
+        }
+
+        .band-card .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        .band-card .band-name {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .band-card .band-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .band-card .band-unit {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+
+        .band-color-delta { color: #6c84ff; }
+        .band-fill-delta { background: #6c84ff; }
+        .band-color-theta { color: #a78bfa; }
+        .band-fill-theta { background: #a78bfa; }
+        .band-color-alpha { color: #34d399; }
+        .band-fill-alpha { background: #34d399; }
+        .band-color-beta { color: #fbbf24; }
+        .band-fill-beta { background: #fbbf24; }
+        .band-color-gamma { color: #f472b6; }
+        .band-fill-gamma { background: #f472b6; }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .info-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .info-card:hover {
+            border-color: var(--border-hover);
+            background: var(--bg-card-hover);
+        }
+
+        .info-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .info-card .card-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .info-card .card-badge {
+            font-size: 0.6rem;
+            padding: 3px 8px;
+            border-radius: 100px;
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .metric-row:last-child { border-bottom: none; }
+
+        .metric-row .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .metric-row .value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .metric-row .value.ok { color: var(--accent-green); }
+        .metric-row .value.warn { color: var(--accent-yellow); }
+        .metric-row .value.muted { color: var(--text-muted); }
+
+        /* --- LOG --- */
+        .log-list {
+            list-style: none;
+            max-height: 160px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) transparent;
+        }
+
+        .log-list::-webkit-scrollbar { width: 4px; }
+        .log-list::-webkit-scrollbar-track { background: transparent; }
+        .log-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+        .log-item {
+            display: flex;
+            gap: 8px;
+            padding: 6px 0;
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .log-item:last-child { border-bottom: none; }
+
+        .log-item .log-time { color: var(--text-muted); flex-shrink: 0; }
+        .log-item .log-msg { flex: 1; min-width: 0; }
+        .log-item.ok .log-msg { color: var(--accent-green); }
+        .log-item.error .log-msg { color: var(--accent-red); }
+        .log-item.warn .log-msg { color: var(--accent-yellow); }
+
+        /* --- CONTROLS --- */
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            filter: brightness(1.15);
+            box-shadow: 0 4px 20px var(--glow-accent);
+        }
+
+        .btn-secondary {
+            border-color: var(--border-color);
+            background: transparent;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--bg-card);
+        }
+
+        .btn-danger {
+            border-color: rgba(248, 113, 113, 0.3);
+            color: var(--accent-red);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: rgba(248, 113, 113, 0.1);
+            border-color: var(--accent-red);
+        }
+
+        /* --- CHART (hidden by default) --- */
+        .chart-wrap {
+            display: none;
+            margin-top: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            height: 220px;
+            transition: all 0.3s ease;
+        }
+
+        .chart-wrap.visible {
+            display: block;
+        }
+
+        .chart-wrap canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .app { animation: fadeIn 0.6s ease-out; }
+
+        .value-flash {
+            animation: flashUpdate 0.3s ease;
+        }
+
+        @keyframes flashUpdate {
+            0% { opacity: 0.6; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .stream-line {
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent-gradient);
+            transform: translateX(-100%);
+            animation: streamScan 2s linear infinite;
+        }
+
+        .stream-line.active { display: block; }
+
+        @keyframes streamScan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .signal-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 20px;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+        .signal-bars .bar {
+            width: 4px;
+            border-radius: 2px;
+            background: var(--accent-2);
+            transition: all 0.5s ease;
+        }
+        .signal-bars .bar.s1 { height: 25%; }
+        .signal-bars .bar.s2 { height: 50%; }
+        .signal-bars .bar.s3 { height: 75%; }
+        .signal-bars .bar.s4 { height: 100%; }
+        .signal-bars.weak { opacity: 0.4; }
+        .signal-bars.weak .bar { background: var(--accent-yellow); }
+        .signal-bars.lost { opacity: 0.25; }
+        .signal-bars.lost .bar { background: var(--accent-red); }
+        .signal-bars.strong { opacity: 0.8; }
+        .signal-bars.strong .bar { background: var(--accent-green); }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-secondary);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        .toggle-slider:before {
+            content: "";
+            position: absolute;
+            height: 16px; width: 16px;
+            left: 3px; bottom: 3px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        input:checked + .toggle-slider {
+            background: var(--accent-2);
+            border-color: var(--accent-2);
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+            background: #fff;
+        }
+
+        .breathing-ring {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-2);
+            margin: 8px auto;
+            animation: breathe 8s ease-in-out infinite;
+            opacity: 0.5;
+        }
+        @keyframes breathe {
+            0%, 100% { transform: scale(0.6); opacity: 0.3; }
+            50% { transform: scale(1.4); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-orb">
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
+    </div>
+
+    <div class="app">
+        <header class="header">
+            <div class="brand">
+                <div class="brand-logo">N</div>
+                <div>
+                    <h1>NeuroDrive</h1>
+                    <div class="sub">EEG Anxiety Monitoring</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="signal-bars" id="signalBars" title="BLE Signal Strength">
+                    <div class="bar s1"></div>
+                    <div class="bar s2"></div>
+                    <div class="bar s3"></div>
+                    <div class="bar s4"></div>
+                </div>
+                <div class="status-badge">
+                    <div class="dot" id="statusDot"></div>
+                    <span id="statusText">Disconnected</span>
+                </div>
+                <button class="btn-icon" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+                    <span id="themeIcon">&#9790;</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="stage">
+                <div class="anxiety-panel">
+                    <div class="gauge-wrap">
+                        <canvas id="gaugeCanvas" width="320" height="320"></canvas>
+                        <div class="gauge-center">
+                            <div class="gauge-value" id="gaugeValue">--</div>
+                            <div class="gauge-label">Anxiety</div>
+                        </div>
+                    </div>
+                    <div class="anxiety-info">
+                        <div class="state no-signal" id="anxietyStateLabel">Awaiting Signal</div>
+                        <div class="meta">
+                            <span>Method: <span class="label-pill" id="anxietyMethod">--</span></span>
+                            <span>Model: <span class="label-pill warmup" id="modelPill">Warming Up</span></span>
+                            <span>&Theta;/&Beta;: <span id="thetaBetaRatio">--</span></span>
+                            <span>&Alpha;/Sum: <span id="alphaSumRatio">--</span></span>
+                        </div>
+                        <div class="meta" style="margin-top: 8px;">
+                            <span id="streamInfo" style="color: var(--text-muted);">No stream connected</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="waveform-panel">
+                    <div class="wave-label">Real-time EEG Waveform</div>
+                    <canvas id="waveformCanvas"></canvas>
+                    <div class="stream-line" id="streamLine"></div>
+                </div>
+
+                <div class="band-grid">
+                    <div class="band-card">
+                        <div class="band-name">Delta</div>
+                        <div class="band-value band-color-delta" id="deltaValue">0.00</div>
+                        <div class="bar-track"><div class="bar-fill band-fill-delta" id="deltaBar"></div></div>
+                        <div class="band-unit">&micro;V</div>
+                    </div>
+                    <div class="band-card">
+                        <div class="band-name">Theta</div>
+                        <div class="band-value band-color-theta" id="thetaValue">0.00</div>
+                        <div class="bar-track"><div class="bar-fill band-fill-theta" id="thetaBar"></div></div>
+                        <div class="band-unit">&micro;V</div>
+                    </div>
+                    <div class="band-card">
+                        <div class="band-name">Alpha</div>
+                        <div class="band-value band-color-alpha" id="alphaValue">0.00</div>
+                        <div class="bar-track"><div class="bar-fill band-fill-alpha" id="alphaBar"></div></div>
+                        <div class="band-unit">&micro;V</div>
+                    </div>
+                    <div class="band-card">
+                        <div class="band-name">Beta</div>
+                        <div class="band-value band-color-beta" id="betaValue">0.00</div>
+                        <div class="bar-track"><div class="bar-fill band-fill-beta" id="betaBar"></div></div>
+                        <div class="band-unit">&micro;V</div>
+                    </div>
+                    <div class="band-card">
+                        <div class="band-name">Gamma</div>
+                        <div class="band-value band-color-gamma" id="gammaValue">0.00</div>
+                        <div class="bar-track"><div class="bar-fill band-fill-gamma" id="gammaBar"></div></div>
+                        <div class="band-unit">&micro;V</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="info-card">
+                    <div class="card-header">
+                        <span class="card-title">Signal Health</span>
+                        <span class="card-badge" id="signalCount">0/5</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Delta</span>
+                        <span class="value muted" id="deltaHealth">--</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Theta</span>
+                        <span class="value muted" id="thetaHealth">--</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Alpha</span>
+                        <span class="value muted" id="alphaHealth">--</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Beta</span>
+                        <span class="value muted" id="betaHealth">--</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Gamma</span>
+                        <span class="value muted" id="gammaHealth">--</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Anxiety</span>
+                        <span class="value muted" id="anxietyHealth">--</span>
+                    </div>
+                </div>
+
+                <div class="info-card" id="aiPanel">
+                    <div class="card-header">
+                        <span class="card-title">AI Assistant</span>
+                        <span class="card-badge" id="aiStatusBadge">Idle</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="aiToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Voice Coach</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label" style="font-size: 0.7rem;">Threshold</span>
+                        <span class="value" id="aiThresholdVal" style="font-size: 0.75rem;">70%</span>
+                    </div>
+                    <input type="range" id="aiThreshold" min="40" max="90" value="70" step="5"
+                        style="width: 100%; accent-color: var(--accent-2); margin: 4px 0 10px;">
+                    <div class="metric-row">
+                        <span class="label" style="font-size: 0.75rem;">High Anxiety Duration</span>
+                        <span class="value" id="aiDurationVal" style="font-size: 0.75rem;">0s</span>
+                    </div>
+                    <button class="btn btn-secondary" id="testVoiceBtn" style="width: 100%; margin: 8px 0 4px; font-size: 0.7rem; padding: 6px 12px;">Test Voice</button>
+                    <div id="aiSpeaking" style="display: none; text-align: center; margin-top: 8px;">
+                        <div class="breathing-ring" id="breathingRing"></div>
+                        <span style="font-size: 0.7rem; color: var(--accent-2);">AI speaking...</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-header">
+                        <span class="card-title">Event Log</span>
+                        <span class="card-badge" id="logCount">0</span>
+                    </div>
+                    <ul class="log-list" id="eventLog"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">&#9654; Start Session</button>
+            <button class="btn btn-danger" id="stopBtn" disabled>&#9632; Stop</button>
+            <button class="btn btn-secondary" id="toggleChartBtn">&#9776; Chart</button>
+            <button class="btn btn-secondary" id="exportBtn">&#8615; Export</button>
+        </div>
+
+        <div class="chart-wrap" id="chartWrap">
+            <canvas id="eegChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let chart = null;
+        let waveformData = [];
+        const MAX_WAVEFORM = 200;
+
+        // --- AI TTS Voice Assistant ---
+        const AI_CONFIG = {
+            threshold: 70,
+            durationRequired: 5,
+            cooldown: 30,
+            enabled: true,
+            speaking: false,
+            highAnxietyStart: null,
+            lastSpokeAt: 0,
+            phraseIndex: 0,
+        };
+
+        const CALMING_PHRASES = [
+            "Take a slow, deep breath. Inhale for four seconds.",
+            "You're doing great. Stay calm and focused on the road.",
+            "Relax your shoulders. Release the tension in your hands.",
+            "Everything is under control. Keep driving safely.",
+            "Breathe in slowly... hold it... and breathe out gently.",
+            "You are safe. The road is clear ahead of you.",
+            "Let go of any stress. Just focus on the present moment.",
+            "Take a deep breath. You've got this.",
+            "Slow and steady. Feel the steering wheel, stay grounded.",
+            "Picture a calm, peaceful place. Let that feeling wash over you.",
+            "Your focus is strong. Let your breathing guide you to calm.",
+            "Inhale peace... exhale tension. You're in control.",
+        ];
+
+        function aiCheckAnxiety(anxietyValue) {
+            if (!AI_CONFIG.enabled) return;
+
+            if (AI_CONFIG.speaking) return;
+
+            const now = Date.now() / 1000;
+            const isHigh = Number.isFinite(anxietyValue) && anxietyValue >= AI_CONFIG.threshold;
+
+            if (isHigh) {
+                if (AI_CONFIG.highAnxietyStart === null) {
+                    AI_CONFIG.highAnxietyStart = now;
+                }
+                const duration = now - AI_CONFIG.highAnxietyStart;
+                const durEl = $('aiDurationVal');
+                if (durEl) durEl.textContent = Math.floor(duration) + 's';
+
+                if (duration >= AI_CONFIG.durationRequired && (now - AI_CONFIG.lastSpokeAt) >= AI_CONFIG.cooldown) {
+                    aiSpeak();
+                }
+            } else {
+                AI_CONFIG.highAnxietyStart = null;
+                const durEl = $('aiDurationVal');
+                if (durEl) durEl.textContent = '0s';
+            }
+        }
+
+        let _ttsSafetyTimer = null;
+
+        function _ttsCleanup() {
+            AI_CONFIG.speaking = false;
+            const spEl = $('aiSpeaking');
+            const bdgEl = $('aiStatusBadge');
+            if (spEl) spEl.style.display = 'none';
+            if (bdgEl) bdgEl.textContent = 'Monitoring';
+            if (_ttsSafetyTimer) { clearTimeout(_ttsSafetyTimer); _ttsSafetyTimer = null; }
+        }
+
+        function aiSpeak() {
+            if (!window.speechSynthesis || AI_CONFIG.speaking) return;
+
+            AI_CONFIG.speaking = true;
+            AI_CONFIG.lastSpokeAt = Date.now() / 1000;
+            AI_CONFIG.highAnxietyStart = null;
+
+            try { speechSynthesis.cancel(); } catch (e) {}
+            try { speechSynthesis.resume(); } catch (e) {}
+
+            const phrase = CALMING_PHRASES[AI_CONFIG.phraseIndex % CALMING_PHRASES.length];
+            AI_CONFIG.phraseIndex++;
+
+            const utterance = new SpeechSynthesisUtterance(phrase);
+            utterance.rate = 0.85;
+            utterance.pitch = 1.05;
+            utterance.volume = 0.9;
+
+            const voices = speechSynthesis.getVoices();
+            const preferred = voices.find(v =>
+                v.name.includes('Female') && (v.lang.startsWith('en') || v.lang.startsWith('en-US') || v.lang.startsWith('en-GB'))
+            ) || voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith('en-US'));
+            if (preferred) {
+                utterance.voice = preferred;
+                addLog('TTS: using voice ' + preferred.name, 'info');
+            }
+
+            const speakingEl = $('aiSpeaking');
+            const badgeEl = $('aiStatusBadge');
+
+            const done = () => {
+                if (_ttsSafetyTimer) { clearTimeout(_ttsSafetyTimer); _ttsSafetyTimer = null; }
+                AI_CONFIG.speaking = false;
+                if (speakingEl) speakingEl.style.display = 'none';
+                if (badgeEl) badgeEl.textContent = 'Monitoring';
+            };
+
+            utterance.onend = done;
+            utterance.onerror = (e) => {
+                addLog('TTS error: ' + (e.error || 'unknown'), 'error');
+                done();
+            };
+
+            // Safety timeout — reset state even if browser never fires onend (Chrome bug)
+            const estimatedMs = (phrase.length / 3) * 1000 + 5000; // ~chars ÷ 3 wps + 5s buffer
+            _ttsSafetyTimer = setTimeout(() => {
+                addLog('TTS safety timeout — resetting state', 'warn');
+                done();
+            }, estimatedMs);
+
+            if (speakingEl) speakingEl.style.display = 'block';
+            if (badgeEl) badgeEl.textContent = 'Speaking';
+            addLog('AI: ' + phrase.substring(0, 50) + '...', 'ok');
+
+            // Chrome needs a micro-delay after cancel/resume before speaking
+            setTimeout(() => {
+                try { speechSynthesis.speak(utterance); } catch (e) {
+                    addLog('TTS speak failed: ' + e.message, 'error');
+                    done();
+                }
+            }, 50);
+        }
+
+        // Preload TTS voices (Chrome loads them asynchronously)
+        let _ttsVoicesReady = false;
+        if (window.speechSynthesis) {
+            const loadVoices = () => {
+                const v = speechSynthesis.getVoices();
+                if (v && v.length > 0) { _ttsVoicesReady = true; }
+            };
+            loadVoices();
+            speechSynthesis.onvoiceschanged = loadVoices;
+            // Chrome workaround: periodically re-check voices
+            setInterval(() => { if (!_ttsVoicesReady) loadVoices(); }, 2000);
+        }
+
+        // --- DOM refs ---
+        const $ = id => document.getElementById(id);
+        const statusDot = $('statusDot');
+        const statusText = $('statusText');
+        const streamInfo = $('streamInfo');
+        const streamLine = $('streamLine');
+        const themeToggle = $('themeToggle');
+        const themeIcon = $('themeIcon');
+        const startBtn = $('startBtn');
+        const stopBtn = $('stopBtn');
+        const toggleChartBtn = $('toggleChartBtn');
+        const exportBtn = $('exportBtn');
+        const chartWrap = $('chartWrap');
+        const chartCanvas = $('eegChart');
+        const eventLog = $('eventLog');
+        const waveformCanvas = $('waveformCanvas');
+        const gaugeCanvas = $('gaugeCanvas');
+
+        // Value elements
+        const gaugeValue = $('gaugeValue');
+        const anxietyStateLabel = $('anxietyStateLabel');
+        const anxietyMethod = $('anxietyMethod');
+        const thetaBetaRatio = $('thetaBetaRatio');
+        const alphaSumRatio = $('alphaSumRatio');
+        const signalCount = $('signalCount');
+
+        const bandIds = ['delta', 'theta', 'alpha', 'beta', 'gamma'];
+        const bandEls = {};
+        const healthEls = {};
+        bandIds.forEach(id => {
+            bandEls[id] = {
+                value: $(id + 'Value'),
+                bar: $(id + 'Bar')
+            };
+            healthEls[id] = $(id + 'Health');
+        });
+        const anxietyHealth = $('anxietyHealth');
+
+        // --- Gauge ---
+        const ctx = gaugeCanvas.getContext('2d');
+        const gaugeW = 320, gaugeH = 320;
+        const cx = gaugeW / 2, cy = gaugeH / 2;
+        const radius = 130, lineWidth = 18;
+
+        function drawGauge(value) {
+            ctx.clearRect(0, 0, gaugeW, gaugeH);
+            const numeric = Number(value);
+            const isValid = Number.isFinite(numeric);
+
+            // Background arc
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0.75 * Math.PI, 2.25 * Math.PI);
+            ctx.strokeStyle = 'rgba(108, 132, 255, 0.12)';
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            if (!isValid) return;
+
+            const pct = Math.min(Math.max(numeric / 100, 0), 1);
+            const startAngle = 0.75 * Math.PI;
+            const endAngle = startAngle + pct * 1.5 * Math.PI;
+
+            // Gradient arc
+            const grad = ctx.createLinearGradient(0, 0, gaugeW, gaugeH);
+            if (pct < 0.33) {
+                grad.addColorStop(0, '#34d399');
+                grad.addColorStop(1, '#6c84ff');
+            } else if (pct < 0.66) {
+                grad.addColorStop(0, '#6c84ff');
+                grad.addColorStop(1, '#fbbf24');
+            } else {
+                grad.addColorStop(0, '#fbbf24');
+                grad.addColorStop(1, '#f87171');
+            }
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, endAngle);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Glow effect
+            ctx.shadowColor = 'rgba(108, 132, 255, 0.3)';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, startAngle, endAngle);
+            ctx.strokeStyle = 'transparent';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        // --- Waveform ---
+        let wfCtx = null;
+        let wfW = 0, wfH = 0;
+        let animFrame = null;
+        let wfData = [];
+
+        function initWaveform() {
+            const rect = waveformCanvas.parentElement.getBoundingClientRect();
+            wfW = waveformCanvas.width = waveformCanvas.clientWidth || rect.width - 40;
+            wfH = waveformCanvas.height = waveformCanvas.clientHeight || 120;
+            wfCtx = waveformCanvas.getContext('2d');
+            drawWaveform();
+        }
+
+        function drawWaveform() {
+            if (!wfCtx) return;
+            const w = wfW, h = wfH, mid = h / 2;
+            wfCtx.clearRect(0, 0, w, h);
+
+            if (wfData.length < 2) {
+                // Draw idle line
+                wfCtx.beginPath();
+                wfCtx.moveTo(0, mid);
+                wfCtx.lineTo(w, mid);
+                wfCtx.strokeStyle = 'rgba(108, 132, 255, 0.15)';
+                wfCtx.lineWidth = 1;
+                wfCtx.stroke();
+                return;
+            }
+
+            const data = wfData.slice(-Math.floor(w * 0.5));
+            const step = w / data.length;
+            const maxVal = Math.max(Math.max(...data.map(Math.abs)), 0.01);
+
+            const grad = wfCtx.createLinearGradient(0, 0, w, 0);
+            grad.addColorStop(0, 'rgba(108, 132, 255, 0.6)');
+            grad.addColorStop(0.5, 'rgba(167, 139, 250, 0.8)');
+            grad.addColorStop(1, 'rgba(244, 114, 182, 0.6)');
+
+            wfCtx.beginPath();
+            data.forEach((val, i) => {
+                const x = i * step;
+                const y = mid - (val / maxVal) * (h * 0.4);
+                i === 0 ? wfCtx.moveTo(x, y) : wfCtx.lineTo(x, y);
+            });
+            wfCtx.strokeStyle = grad;
+            wfCtx.lineWidth = 2;
+            wfCtx.shadowColor = 'rgba(108, 132, 255, 0.3)';
+            wfCtx.shadowBlur = 6;
+            wfCtx.stroke();
+            wfCtx.shadowBlur = 0;
+
+            // Fill below
+            const lastX = (data.length - 1) * step;
+            wfCtx.lineTo(lastX, mid);
+            wfCtx.lineTo(0, mid);
+            wfCtx.closePath();
+            const fillGrad = wfCtx.createLinearGradient(0, 0, 0, h);
+            fillGrad.addColorStop(0, 'rgba(108, 132, 255, 0.08)');
+            fillGrad.addColorStop(1, 'rgba(108, 132, 255, 0)');
+            wfCtx.fillStyle = fillGrad;
+            wfCtx.fill();
+        }
+
+        function addWaveformPoint(value) {
+            wfData.push(value);
+            if (wfData.length > MAX_WAVEFORM) wfData.shift();
+            drawWaveform();
+        }
+
+        // --- Utils ---
+        function fmt(v, d = 2) { const n = Number(v); return Number.isFinite(n) ? n.toFixed(d) : '--'; }
+
+        function addLog(msg, level = 'info') {
+            if (!eventLog) return;
+            const li = document.createElement('li');
+            li.className = 'log-item ' + level;
+            const t = document.createElement('span');
+            t.className = 'log-time';
+            t.textContent = new Date().toLocaleTimeString();
+            const m = document.createElement('span');
+            m.className = 'log-msg';
+            m.textContent = msg;
+            li.appendChild(t);
+            li.appendChild(m);
+            eventLog.prepend(li);
+            while (eventLog.children.length > 20) eventLog.removeChild(eventLog.lastElementChild);
+            const lc = $('logCount');
+            if (lc) lc.textContent = eventLog.children.length;
+        }
+
+        function updateStatus(text, connected) {
+            statusText.textContent = text;
+            statusDot.className = 'dot';
+            if (connected) {
+                statusDot.classList.add('live');
+                streamLine.classList.add('active');
+                updateSignalBars('strong');
+            } else if (text && text.toLowerCase().includes('waiting')) {
+                statusDot.classList.add('waiting');
+                streamLine.classList.remove('active');
+                updateSignalBars('weak');
+            } else {
+                streamLine.classList.remove('active');
+                updateSignalBars('lost');
+            }
+        }
+
+        function updateSignalBars(quality) {
+            const bars = $('signalBars');
+            if (!bars) return;
+            bars.className = 'signal-bars';
+            if (quality === 'strong') bars.classList.add('strong');
+            else if (quality === 'weak') bars.classList.add('weak');
+            else bars.classList.add('lost');
+        }
+
+        function updateHealth(key, value) {
+            const el = healthEls[key];
+            if (!el) return;
+            const n = Number(value);
+            const ok = Number.isFinite(n) && n > 0;
+            el.textContent = ok ? 'OK' : '--';
+            el.className = 'value ' + (ok ? 'ok' : 'muted');
+
+            // Update count
+            const count = bandIds.filter(k => healthEls[k] && healthEls[k].textContent === 'OK').length;
+            signalCount.textContent = count + '/5';
+        }
+
+        function updateAnxietyHealth(value) {
+            const n = Number(value);
+            const ok = Number.isFinite(n) && n > 0;
+            anxietyHealth.textContent = ok ? 'OK' : '--';
+            anxietyHealth.className = 'value ' + (ok ? 'ok' : 'muted');
+        }
+
+        function updateMetrics(data) {
+            const anxiety = Number(data.anxiety);
+            const isValid = Number.isFinite(anxiety);
+
+            // Gauge
+            drawGauge(isValid ? anxiety : 0);
+            gaugeValue.textContent = isValid ? anxiety.toFixed(0) : '--';
+            gaugeValue.style.color = isValid
+                ? (anxiety < 33 ? 'var(--accent-green)' : anxiety < 66 ? 'var(--accent-yellow)' : 'var(--accent-red)')
+                : 'var(--text-muted)';
+
+            // State label
+            const label = String(data.anxiety_label || '').toLowerCase();
+            const stateText = label === 'no signal' || !isValid
+                ? 'Awaiting Signal'
+                : (label === 'low' ? 'Low Anxiety' : label === 'medium' ? 'Moderate Anxiety' : 'High Anxiety');
+            anxietyStateLabel.textContent = stateText;
+            anxietyStateLabel.className = 'state ' + (label === 'no signal' || !isValid ? 'no-signal' : label || 'no-signal');
+
+            // Method
+            anxietyMethod.textContent = data.anxiety_method || '--';
+
+            // Model state pill
+            const modelPill = $('modelPill');
+            if (modelPill) {
+                const modelActive = String(data.model_active || 'qeeg');
+                modelPill.classList.remove('qeeg', 'camber_rf', 'warmup');
+                if (modelActive === 'camber_rf') {
+                    modelPill.textContent = 'Camber RF';
+                    modelPill.classList.add('camber_rf');
+                } else {
+                    modelPill.textContent = 'Warming Up';
+                    modelPill.classList.add('warmup');
+                }
+            }
+
+            thetaBetaRatio.textContent = fmt(data.theta_beta_ratio, 2);
+            alphaSumRatio.textContent = fmt(data.alpha_sum_ratio, 2);
+
+            // Bands
+            bandIds.forEach(id => {
+                const val = Number(data[id] || 0);
+                const el = bandEls[id];
+                if (el.value) el.value.textContent = fmt(val);
+                if (el.bar) el.bar.style.width = Math.min(val * 2, 100) + '%';
+                updateHealth(id, val);
+            });
+
+            updateAnxietyHealth(anxiety);
+
+            // Stream info
+            if (data.stream_name) {
+                streamInfo.textContent = 'Stream: ' + data.stream_name + (data.sequence ? ' | Seq: ' + data.sequence : '');
+            }
+
+            // Waveform - use delta as the waveform source
+            const waveVal = Number(data.delta || data.theta || data.alpha || 0);
+            if (Number.isFinite(waveVal)) addWaveformPoint(waveVal);
+
+            aiCheckAnxiety(data.anxiety);
+        }
+
+        // --- SocketIO ---
+        socket.on('connect', () => {
+            updateStatus('Connected', true);
+            addLog('Connected to NeuroDrive server', 'ok');
+            startBtn.disabled = false;
+        });
+
+        socket.on('disconnect', () => {
+            updateStatus('Disconnected', false);
+            addLog('Disconnected from server', 'error');
+            startBtn.disabled = true;
+            stopBtn.disabled = true;
+        });
+
+        socket.on('status_update', (data) => {
+            statusText.textContent = data.status;
+            addLog(data.status, data.status.includes('Connected') ? 'ok' : 'warn');
+            if (data.status.includes('Connected') || data.status.includes('Streaming')) {
+                updateStatus(data.status, true);
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else if (data.status.includes('Waiting')) {
+                updateStatus(data.status, false);
+            }
+        });
+
+        socket.on('metrics_update', (data) => {
+            updateMetrics(data);
+            if (data.sequence && data.sequence % 10 === 0) {
+                addLog('Seq ' + data.sequence + ': anxiety ' + fmt(data.anxiety, 1), 'info');
+            }
+        });
+
+        // --- Chart ---
+        function initChart() {
+            if (chart) return;
+            const ctx = chartCanvas.getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Delta', data: [], borderColor: '#6c84ff', backgroundColor: 'rgba(108,132,255,0.06)', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+                        { label: 'Theta', data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.06)', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+                        { label: 'Alpha', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.06)', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+                        { label: 'Beta', data: [], borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.06)', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+                        { label: 'Gamma', data: [], borderColor: '#f472b6', backgroundColor: 'rgba(244,114,182,0.06)', tension: 0.4, pointRadius: 0, borderWidth: 2 },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    plugins: {
+                        legend: {
+                            labels: { color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#8892b0', boxWidth: 12, padding: 12, font: { size: 10 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#4a5278', maxTicksLimit: 8, font: { size: 9 } },
+                            grid: { color: 'rgba(108,132,255,0.06)' }
+                        },
+                        y: {
+                            ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#4a5278', font: { size: 9 } },
+                            grid: { color: 'rgba(108,132,255,0.06)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function addToChart(data) {
+            if (!chart) return;
+            const now = new Date().toLocaleTimeString();
+            if (chart.data.labels.length > 30) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(ds => ds.data.shift());
+            }
+            chart.data.labels.push(now);
+            chart.data.datasets[0].data.push(Number(data.delta || 0));
+            chart.data.datasets[1].data.push(Number(data.theta || 0));
+            chart.data.datasets[2].data.push(Number(data.alpha || 0));
+            chart.data.datasets[3].data.push(Number(data.beta || 0));
+            chart.data.datasets[4].data.push(Number(data.gamma || 0));
+            chart.update('none');
+        }
+
+        // --- Theme ---
+        function applyTheme(theme) {
+            const isLight = theme === 'light';
+            document.body.classList.toggle('light-mode', isLight);
+            themeIcon.innerHTML = isLight ? '&#9790;' : '&#9728;';
+            localStorage.setItem('neurodrive-theme', theme);
+            if (chart) {
+                const tc = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#8892b0';
+                const gc = getComputedStyle(document.body).getPropertyValue('--border-color').trim() || 'rgba(108,132,255,0.12)';
+                chart.options.plugins.legend.labels.color = tc;
+                chart.options.scales.x.ticks.color = tc;
+                chart.options.scales.x.grid.color = gc;
+                chart.options.scales.y.ticks.color = tc;
+                chart.options.scales.y.grid.color = gc;
+                chart.update('none');
+            }
+        }
+        applyTheme(localStorage.getItem('neurodrive-theme') || 'dark');
+
+        themeToggle.addEventListener('click', () => {
+            const curr = localStorage.getItem('neurodrive-theme') || 'dark';
+            applyTheme(curr === 'dark' ? 'light' : 'dark');
+        });
+
+        // --- Buttons ---
+        startBtn.addEventListener('click', async () => {
+            try {
+                const r = await fetch('/api/start', { method: 'POST' });
+                const d = await r.json();
+                d.success ? addLog('Session started', 'ok') : addLog('Start failed: ' + d.message, 'error');
+            } catch (e) { addLog('Error: ' + e.message, 'error'); }
+        });
+
+        stopBtn.addEventListener('click', async () => {
+            try {
+                const r = await fetch('/api/stop', { method: 'POST' });
+                const d = await r.json();
+                if (d.success) {
+                    addLog('Session stopped', 'ok');
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                } else {
+                    addLog('Stop failed: ' + d.message, 'error');
+                }
+            } catch (e) { addLog('Error: ' + e.message, 'error'); }
+        });
+
+        toggleChartBtn.addEventListener('click', () => {
+            chartWrap.classList.toggle('visible');
+            if (chartWrap.classList.contains('visible')) {
+                if (!chart) initChart();
+                addLog('Chart enabled', 'info');
+            } else {
+                addLog('Chart disabled', 'info');
+            }
+        });
+
+        exportBtn.addEventListener('click', async () => {
+            try {
+                const r = await fetch('/api/sessions');
+                const d = await r.json();
+                if (d.sessions.length > 0) {
+                    const s = d.sessions[0];
+                    const r2 = await fetch('/api/session/' + s.filename);
+                    const d2 = await r2.json();
+                    const csv = convertToCSV(d2.records);
+                    downloadCSV(csv, 'neurodrive_export_' + new Date().toISOString() + '.csv');
+                    addLog('Exported ' + d2.records.length + ' records', 'ok');
+                } else {
+                    addLog('No sessions to export', 'warn');
+                }
+            } catch (e) { addLog('Export failed: ' + e.message, 'error'); }
+        });
+
+        // --- AI TTS Controls ---
+        const aiToggleEl = $('aiToggle');
+        const aiThresholdEl = $('aiThreshold');
+        const aiThresholdValEl = $('aiThresholdVal');
+
+        if (aiToggleEl) {
+            aiToggleEl.addEventListener('change', () => {
+                AI_CONFIG.enabled = aiToggleEl.checked;
+                addLog(AI_CONFIG.enabled ? 'AI Voice Coach enabled' : 'AI Voice Coach disabled', 'info');
+            });
+        }
+
+        if (aiThresholdEl) {
+            aiThresholdEl.addEventListener('input', () => {
+                AI_CONFIG.threshold = parseInt(aiThresholdEl.value);
+                if (aiThresholdValEl) aiThresholdValEl.textContent = AI_CONFIG.threshold + '%';
+            });
+        }
+
+        // Test Voice button — primes Chrome's autoplay gate via user gesture
+        const testVoiceBtn = $('testVoiceBtn');
+        if (testVoiceBtn) {
+            testVoiceBtn.addEventListener('click', () => {
+                if (!window.speechSynthesis) {
+                    addLog('TTS: SpeechSynthesis not supported in this browser', 'error');
+                    return;
+                }
+                addLog('TTS: Testing voice output...', 'info');
+                try { speechSynthesis.cancel(); } catch (e) {}
+                const test = new SpeechSynthesisUtterance('NeuroDrive voice coach is ready.');
+                test.rate = 0.9;
+                test.pitch = 1.05;
+                test.volume = 0.7;
+                const voices = speechSynthesis.getVoices();
+                const pref = voices.find(v =>
+                    v.name.includes('Female') && v.lang.startsWith('en')
+                ) || voices.find(v => v.lang.startsWith('en-GB'));
+                if (pref) test.voice = pref;
+                test.onend = () => addLog('TTS: Voice test complete', 'ok');
+                test.onerror = (e) => addLog('TTS test error: ' + (e.error || 'unknown'), 'error');
+                // Safety timeout
+                setTimeout(() => {
+                    if (speechSynthesis.speaking) {
+                        try { speechSynthesis.cancel(); } catch (e) {}
+                        addLog('TTS: Voice test timed out (may need Chrome flag)', 'warn');
+                    }
+                }, 8000);
+                speechSynthesis.speak(test);
+            });
+        }
+
+        function convertToCSV(records) {
+            if (!records || !records.length) return '';
+            const h = Object.keys(records[0]);
+            return [h.join(',')].concat(records.map(r =>
+                h.map(k => '"' + String(r[k] || '').replace(/"/g, '""') + '"').join(',')
+            )).join('\n');
+        }
+
+        function downloadCSV(csv, name) {
+            const b = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(b);
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(b);
+        }
+
+        // --- Init ---
+        window.addEventListener('resize', initWaveform);
+
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(s => {
+                if (s.latest_payload) {
+                    updateMetrics(s.latest_payload);
+                    if (chart) addToChart(s.latest_payload);
+                    addLog('Loaded latest data', 'info');
+                }
+                if (s.is_running) {
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    updateStatus('Streaming', true);
+                }
+            })
+            .catch(() => {});
+
+        // Initial gauge draw
+        drawGauge(0);
+
+        // Init waveform
+        setTimeout(initWaveform, 100);
+
+        // Pre-populate waveform with some idle noise
+        for (let i = 0; i < 100; i++) {
+            wfData.push(Math.sin(i * 0.1) * 0.5 + (Math.random() - 0.5) * 0.3);
+        }
+        setTimeout(drawWaveform, 150);
+    </script>
+</body>
+</html>

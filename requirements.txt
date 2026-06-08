@@ -1,0 +1,25 @@
+# EEG STREAMING: This project uses OpenMuse for Muse Athena BLE streaming.
+# Install OpenMuse separately (not on PyPI):
+# pip install https://github.com/DominiqueMakowski/OpenMuse/zipball/main
+#
+# USAGE: Run python app.py to launch the web server
+# Manual: OpenMuse stream --address 00:55:DA:BB:C4:8E (in one terminal)
+#         python app.py (in another terminal)
+
+# Web Framework
+Flask==3.0.0
+Flask-SocketIO==5.3.6
+python-socketio==5.10.0
+
+# EEG Data Processing
+pylsl>=1.17.0,<2
+numpy==1.26.4
+scipy==1.13.1
+
+# Machine Learning (for anxiety model)
+scikit-learn==1.5.1
+joblib==1.4.2
+
+# Data Visualization & Reporting (optional, used by withouttheadband.py)
+matplotlib==3.9.2
+reportlab==4.2.2
