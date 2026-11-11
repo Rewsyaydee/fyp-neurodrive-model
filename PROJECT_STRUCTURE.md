@@ -38,7 +38,10 @@ Muse Headband -> OpenMuse -> LSL Stream -> app.py -> SocketIO -> Dashboard
 
 ```
 FINALYEARPROJECTVOL2/
+├── .venv/                  # Created by START_NEURODRIVE.bat (machine-specific)
 ├── app.py                  # Main Flask application
+├── START_NEURODRIVE.bat    # Self-bootstrapping Windows launcher
+├── requirements-athena.txt # Athena-only deps for Python 3.13/3.14
 ├── connect_muse.py         # Headband connection script
 ├── start.py               # Application launcher
 ├── withouttheadband.py    # Demo mode
@@ -50,7 +53,8 @@ FINALYEARPROJECTVOL2/
 ├── utils/                 # Utility modules
 │   └── anxiety_calculator.py
 ├── tools/                 # Helper scripts
-│   └── start_stream.py    # OpenMuse launcher
+│   ├── start_muselsl.py   # Muse 2 / legacy Muse launcher
+│   └── start_stream.py    # OpenMuse / Muse S Athena launcher
 ├── artifacts/             # Model artifacts & reports
 ├── docs/                  # Documentation & references
 ├── backups/               # Backup files
@@ -81,6 +85,9 @@ The streaming works well in terminal but may have synchronization issues with th
 
 ## Development Notes
 
+- `START_NEURODRIVE.bat` bootstraps a project-local `.venv`: it locates or
+  downloads Python 3.12+, installs the project requirements and OpenMuse, then
+  launches `start.py`.
 - The system uses Flask with SocketIO for real-time communication
 - EEG data is processed at 20Hz target rate (adjustable via `TARGET_HZ`)
 - Anxiety levels calculated using theta/beta and alpha ratio methods
@@ -94,4 +101,5 @@ The streaming works well in terminal but may have synchronization issues with th
 - Flask-SocketIO
 - pylsl (for LSL streaming)
 - numpy (for EEG processing)
-- OpenMuse (external application for Muse headband)
+- muselsl (Muse 2 / legacy Muse)
+- OpenMuse (Muse S Athena)

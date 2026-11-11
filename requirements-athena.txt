@@ -1,0 +1,13 @@
+# Minimal requirements for the Muse S Athena path (OpenMuse + dashboard).
+# These versions work on Python 3.12-3.14.
+#
+# OpenMuse is not on PyPI. Install it separately:
+#   python -m pip install https://github.com/DominiqueMakowski/OpenMuse/zipball/main
+#
+# Then install this file:
+#   python -m pip install -r requirements-athena.txt
+
+pylsl>=1.17.0,<2
+Flask==3.0.0
+Flask-SocketIO==5.3.6
+python-socketio==5.10.0

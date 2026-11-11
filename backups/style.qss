@@ -1,0 +1,303 @@
+QMainWindow,
+QWidget#MainShell,
+QWidget#DashboardTab,
+QWidget#SessionTab,
+QWidget#ReportTab,
+QWidget#PreflightCheck {
+    background: $neutral;
+    color: $primary;
+    font-family: "$font_body", "Segoe UI", sans-serif;
+    font-size: 11pt;
+}
+
+QWidget {
+    background: transparent;
+    color: $primary;
+}
+
+QLabel {
+    background: transparent;
+    color: $primary;
+}
+
+QLabel#SidebarEyebrow,
+QLabel#SidebarSubtitle,
+QLabel#SessionLabel,
+QLabel#SectionTitle,
+QLabel#CardHead,
+QLabel#MetricHead,
+QLabel#TopBarTitle,
+QLabel#TopBarNote,
+QLabel#PlaceholderLabel,
+QLabel#SectionSubtle {
+    font-family: "$font_mono", "Consolas", monospace;
+}
+
+QFrame#Sidebar {
+    background: $neutral;
+    border-right: $border_divider;
+}
+
+QFrame#SidebarCard,
+QFrame#MetricCard,
+QFrame#Panel,
+QFrame#TopBar,
+QFrame#SessionBlock,
+QFrame#RisoCardSurface,
+QFrame#RisoButtonSurface {
+    background: $surface;
+    border: $border_card;
+    border-radius: $radius_lg;
+}
+
+QFrame#RisoCardShadow,
+QFrame#RisoButtonShadow {
+    background: $primary;
+    border: none;
+    border-radius: $radius_lg;
+}
+
+QFrame#SessionBlock {
+    border-top: $border_divider;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 0;
+}
+
+QLabel#SidebarEyebrow,
+QLabel#SidebarSubtitle,
+QLabel#MetricHead,
+QLabel#SessionLabel,
+QLabel#TopBarNote,
+QLabel#SectionSubtle,
+QLabel#PlaceholderLabel {
+    color: $secondary;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+QLabel#SidebarTitle {
+    color: $primary;
+    font-family: "$font_display", Georgia, serif;
+    font-size: 30pt;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    padding: 0 8px;
+}
+
+QLabel#CardHead,
+QLabel#TopBarTitle,
+QLabel#SectionTitle {
+    color: $primary;
+    font-family: "$font_display", Georgia, serif;
+    font-size: 14pt;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+QLabel#CardBody,
+QLabel#SessionHint,
+QLabel#TopBarNote,
+QLabel#SectionSubtle,
+QLabel#PlaceholderLabel {
+    color: $secondary;
+    font-size: 10pt;
+    line-height: 1.55;
+}
+
+QLabel#MetricValue,
+QLabel#FocusValue,
+QLabel#SessionClock {
+    color: $primary;
+    font-family: "$font_mono", "Consolas", monospace;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+QLabel#MetricValue {
+    font-size: 24pt;
+}
+
+QLabel#FocusValue {
+    font-size: 18pt;
+}
+
+QLabel#SessionClock {
+    font-size: 20pt;
+}
+
+QLabel#StatusBadge {
+    background: $surface;
+    color: $primary;
+    padding: 8px 14px;
+    border: $border_card;
+    border-radius: 999px;
+    font-family: "$font_mono", "Consolas", monospace;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+QPushButton {
+    background: $surface;
+    color: $primary;
+    border: $border_card;
+    border-radius: $radius_lg;
+    padding: 12px 20px;
+    font-family: "$font_display", Georgia, serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+QPushButton:hover {
+    background: $neutral;
+}
+
+QPushButton:pressed {
+    background: $surface;
+}
+
+QPushButton:disabled {
+    opacity: 0.45;
+}
+
+QPushButton[variant="primary"] {
+    background: $tertiary;
+}
+
+QPushButton[variant="secondary"] {
+    background: $surface;
+}
+
+QPushButton[variant="outline"] {
+    background: transparent;
+    border: 2px dashed $primary;
+    font-family: "$font_mono", "Consolas", monospace;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+QPushButton[variant="ghost"] {
+    background: transparent;
+    border: none;
+    color: $tertiary;
+    font-family: "$font_mono", "Consolas", monospace;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 10px 4px;
+}
+
+QLineEdit,
+QSpinBox,
+QComboBox,
+QTextEdit,
+QTableWidget,
+QListWidget {
+    background: $surface;
+    border: $border_card;
+    border-radius: $radius_lg;
+    color: $primary;
+    selection-background-color: $tertiary;
+    selection-color: $primary;
+    padding: 10px 12px;
+    font-family: "$font_body", "Segoe UI", sans-serif;
+    font-size: 0.9375rem;
+}
+
+QLineEdit:focus,
+QSpinBox:focus,
+QComboBox:focus,
+QTextEdit:focus {
+    border: 2px solid $tertiary;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+QProgressBar {
+    background: $neutral;
+    border: $border_card;
+    border-radius: $radius_md;
+    color: $primary;
+    text-align: center;
+    font-size: 9pt;
+    font-weight: 700;
+    min-height: 16px;
+}
+
+QProgressBar::chunk {
+    background: $primary;
+    border-radius: $radius_md;
+}
+
+QTabWidget::pane {
+    border: $border_card;
+    background: $surface;
+    top: -1px;
+}
+
+QTabBar {
+    background: $neutral;
+    border-bottom: $border_divider;
+}
+
+QTabBar::tab {
+    background: $surface;
+    color: $secondary;
+    padding: 10px 14px;
+    margin-right: 6px;
+    border: $border_card;
+    border-bottom: none;
+    font-family: "$font_mono", "Consolas", monospace;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+QTabBar::tab:selected {
+    color: $primary;
+    background: $neutral;
+}
+
+QStatusBar {
+    background: $neutral;
+    color: $secondary;
+    border-top: $border_divider;
+}
+
+QHeaderView::section {
+    background: $neutral;
+    color: $primary;
+    border: none;
+    border-bottom: $border_divider;
+    padding: 10px 8px;
+    font-family: "$font_mono", "Consolas", monospace;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+QSlider::groove:horizontal {
+    height: 6px;
+    background: $neutral;
+    border: $border_card;
+    border-radius: $radius_md;
+}
+
+QSlider::handle:horizontal {
+    background: $tertiary;
+    width: 18px;
+    margin: -7px 0;
+    border: 2px solid $primary;
+    border-radius: 9px;
+}

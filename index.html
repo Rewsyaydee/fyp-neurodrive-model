@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,700;1,500&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet">
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <style>
         :root {
             --peony-light: #ffd1dc;
@@ -16,25 +15,33 @@
             --satin-sheen: rgba(255, 255, 255, 0.15);
             --void: #0a0205;
             --fluid-gradient: linear-gradient(135deg, #ff85a2 0%, #7c0a2a 100%);
-            --success: #00ffaa;
-            --warning: #ffcc00;
-            --danger: #ff004c;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: crosshair;
+        }
 
         body {
             background-color: var(--void);
             color: var(--peony-light);
             font-family: 'Instrument Sans', sans-serif;
-            min-height: 100vh;
-            overflow-x: hidden;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .nebulous-container {
             position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: -1;
             filter: blur(120px);
             opacity: 0.6;
@@ -43,7 +50,8 @@
 
         .blob {
             position: absolute;
-            width: 600px; height: 600px;
+            width: 600px;
+            height: 600px;
             background: radial-gradient(circle, var(--peony-mid) 0%, transparent 70%);
             border-radius: 50%;
             animation: drift 25s infinite alternate ease-in-out;
@@ -51,8 +59,10 @@
 
         .blob:nth-child(2) {
             background: radial-gradient(circle, var(--peony-deep) 0%, transparent 70%);
-            width: 800px; height: 800px;
-            right: -100px; top: -100px;
+            width: 800px;
+            height: 800px;
+            right: -100px;
+            top: -100px;
             animation-duration: 35s;
         }
 
@@ -61,25 +71,22 @@
             to { transform: translate(20%, 20%) scale(1.2); }
         }
 
-        /* --- LAYOUT --- */
         main {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 24px;
+            width: 94vw;
+            height: 90vh;
             display: grid;
             grid-template-columns: 1fr 380px;
             grid-template-rows: auto 1fr auto;
-            gap: 20px;
-            min-height: 100vh;
+            gap: 24px;
+            z-index: 1;
         }
 
-        /* --- HEADER --- */
         header {
             grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            padding-bottom: 16px;
+            padding-bottom: 20px;
             border-bottom: 1px solid rgba(255, 133, 162, 0.2);
         }
 
@@ -93,190 +100,95 @@
 
         .brand p {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.65rem;
-            opacity: 0.5;
-            margin-top: 2px;
+            font-size: 0.7rem;
+            opacity: 0.6;
         }
 
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 8px 16px;
-            border-radius: 100px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.6rem;
-        }
-
-        .live-dot {
-            width: 6px; height: 6px;
-            background: var(--danger);
-            border-radius: 50%;
-            transition: background 0.3s;
-        }
-
-        .live-dot.connected { background: var(--success); }
-        .live-dot.streaming { background: var(--success); box-shadow: 0 0 8px var(--success); }
-
-        .theme-toggle {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--satin-sheen);
-            color: var(--peony-light);
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s;
-        }
-
-        .theme-toggle:hover {
-            background: rgba(255, 133, 162, 0.2);
-            border-color: var(--peony-mid);
-        }
-
-        /* --- STAGE (main visualization area) --- */
         .stage {
             position: relative;
             background: rgba(255, 255, 255, 0.02);
             backdrop-filter: blur(10px);
             border: 1px solid var(--satin-sheen);
             border-radius: 40px;
-            padding: 32px;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            gap: 24px;
-            transition: border-color 0.6s;
+            padding: 40px;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        .stage:hover { border-color: var(--peony-mid); }
+        .stage:hover {
+            transform: scale(1.005);
+            border-color: var(--peony-mid);
+        }
 
         .stage-title {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 2px;
-            color: var(--peony-mid);
+            margin-bottom: 40px;
         }
 
-        .anxiety-display {
+        .fluid-visualizer {
+            flex-grow: 1;
             display: flex;
             align-items: center;
-            gap: 24px;
-            padding: 16px 0;
+            justify-content: center;
         }
 
-        .anxiety-score {
-            font-size: 5rem;
-            font-weight: 200;
-            line-height: 1;
-            transition: color 0.6s;
-        }
-
-        .anxiety-score.low { color: var(--success); }
-        .anxiety-score.medium { color: var(--warning); }
-        .anxiety-score.high { color: var(--danger); }
-        .anxiety-score.nosignal { color: rgba(255,255,255,0.2); }
-
-        .anxiety-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .anxiety-label {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .anxiety-method {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.55rem;
-            opacity: 0.4;
-        }
-
-        .model-badge {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 2px 8px;
-            border-radius: 4px;
-            display: inline-block;
-            margin-top: 3px;
-        }
-        .model-badge.qeeg { background: rgba(108,132,255,0.15); color: #6c84ff; }
-        .model-badge.camber_rf { background: rgba(52,211,153,0.15); color: #34d399; }
-        .model-badge.warmup { background: rgba(251,191,36,0.15); color: #fbbf24; }
-
-        /* --- Waveform Canvas --- */
-        .waveform-wrap {
+        .petal-wrap {
             position: relative;
-            flex-grow: 1;
-            min-height: 180px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 20px;
-            overflow: hidden;
+            width: 400px;
+            height: 400px;
         }
 
-        .waveform-wrap canvas {
+        .petal {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            display: block;
-        }
-
-        .electrode-legend {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.6rem;
-            opacity: 0.6;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .legend-dot {
-            width: 8px; height: 3px;
-            border-radius: 2px;
-        }
-
-        /* --- Bottom shelf --- */
-        .bottom-shelf {
-            display: flex;
-            justify-content: space-between;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.6rem;
+            border: 2px solid var(--peony-mid);
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+            animation: morph 8s infinite ease-in-out;
             opacity: 0.4;
+            mix-blend-mode: screen;
         }
 
-        /* --- SIDEBAR --- */
+        .petal:nth-child(2) {
+            animation-delay: -2s;
+            border-color: var(--peony-light);
+            transform: rotate(45deg);
+        }
+
+        .petal:nth-child(3) {
+            animation-delay: -4s;
+            background: rgba(255, 133, 162, 0.05);
+            border-color: var(--peony-deep);
+            transform: rotate(90deg);
+        }
+
+        @keyframes morph {
+            0%, 100% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; transform: rotate(0deg) scale(1); }
+            33% { border-radius: 50% 50% 20% 80% / 25% 80% 20% 75%; transform: rotate(120deg) scale(1.1); }
+            66% { border-radius: 67% 33% 47% 53% / 37% 20% 80% 63%; transform: rotate(240deg) scale(0.9); }
+        }
+
         .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
         }
 
         .metric-card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--satin-sheen);
-            padding: 18px;
-            border-radius: 20px;
+            padding: 24px;
+            border-radius: 24px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
             transition: all 0.4s ease;
         }
 
@@ -293,50 +205,46 @@
 
         .metric-label {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.6rem;
+            font-size: 0.65rem;
             color: var(--peony-mid);
             text-transform: uppercase;
         }
 
-        .metric-unit {
-            font-size: 0.6rem;
-            opacity: 0.5;
-        }
-
         .metric-value {
-            font-size: 1.6rem;
+            font-size: 1.8rem;
             font-weight: 300;
             letter-spacing: -1px;
         }
 
-        .metric-value-sub {
+        .metric-unit {
             font-size: 0.7rem;
             opacity: 0.5;
             margin-left: 4px;
         }
 
         .mini-graph {
-            height: 32px;
+            height: 40px;
             width: 100%;
             display: flex;
             align-items: flex-end;
-            gap: 2px;
+            gap: 3px;
         }
 
         .bar {
             flex-grow: 1;
             background: var(--peony-mid);
-            border-radius: 1px;
-            min-height: 2px;
+            border-radius: 2px;
+            min-height: 4px;
             transition: height 0.3s ease;
-            opacity: 0.5;
+            opacity: 0.6;
         }
 
         .hr-circle {
-            width: 10px; height: 10px;
-            background: var(--danger);
+            width: 12px;
+            height: 12px;
+            background: #ff004c;
             border-radius: 50%;
-            box-shadow: 0 0 10px var(--danger);
+            box-shadow: 0 0 15px #ff004c;
             animation: pulse-heart 0.8s infinite;
         }
 
@@ -346,126 +254,65 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        .electrode-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        .electrode-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--satin-sheen);
-            padding: 14px;
-            border-radius: 16px;
-            text-align: center;
-            transition: all 0.3s;
-        }
-
-        .electrode-card:hover {
-            border-color: var(--peony-mid);
-            background: rgba(255, 133, 162, 0.06);
-        }
-
-        .electrode-name {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.6rem;
-            color: var(--peony-mid);
-            margin-bottom: 4px;
-        }
-
-        .electrode-value {
-            font-size: 1.2rem;
-            font-weight: 300;
-        }
-
-        /* --- CONTROLS --- */
         .controls {
             grid-column: 1 / -1;
             display: flex;
-            gap: 16px;
+            gap: 20px;
             align-items: center;
-            flex-wrap: wrap;
         }
 
-        .btn {
-            padding: 12px 24px;
+        .csv-capture {
+            background: var(--peony-mid);
+            color: var(--void);
+            padding: 14px 28px;
             border-radius: 100px;
             font-weight: 700;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             border: none;
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
             transition: all 0.3s ease;
-            font-family: 'Instrument Sans', sans-serif;
         }
 
-        .btn-primary {
-            background: var(--peony-mid);
-            color: var(--void);
-        }
-
-        .btn-primary:hover {
+        .csv-capture:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 30px rgba(255, 133, 162, 0.4);
             background: #fff;
         }
 
-        .btn-primary:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: #fff;
-        }
-
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(255, 0, 76, 0.4);
-        }
-
-        .btn-danger:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .btn-secondary {
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             background: rgba(255, 255, 255, 0.05);
-            color: var(--peony-light);
-            border: 1px solid var(--satin-sheen);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 133, 162, 0.15);
-            border-color: var(--peony-mid);
-        }
-
-        .session-file {
+            padding: 8px 16px;
+            border-radius: 100px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.6rem;
-            opacity: 0.5;
-            margin-left: auto;
         }
 
-        /* --- RESPONSIVE --- */
-        @media (max-width: 900px) {
-            main {
-                grid-template-columns: 1fr;
-                padding: 12px;
-                gap: 12px;
-            }
-            .sidebar {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-            }
-            .anxiety-score { font-size: 3rem; }
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #00ffaa;
+            border-radius: 50%;
         }
+
+        .bottom-shelf {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            right: 40px;
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem;
+            opacity: 0.4;
+        }
+
     </style>
 </head>
 <body>
@@ -476,544 +323,246 @@
     </div>
 
     <main>
-        <!-- HEADER -->
         <header>
             <div class="brand">
                 <h1>NEURODRIVE</h1>
-                <p>Real-time EEG Anxiety Monitor</p>
+                <p>Final Year Project of Rusyaidi and Imran Husaini</p>
             </div>
-            <div class="header-right">
-                <div class="status-pill">
-                    <div class="live-dot" id="liveDot"></div>
-                    <span id="statusText">CONNECTING...</span>
-                </div>
-                <button class="theme-toggle" id="themeToggle" title="Toggle theme">&#9790;</button>
+            <div class="status-pill">
+                <div class="live-dot" id="liveDot"></div>
+                <span id="statusText">EGG_STREAM_ACTIVE</span>
             </div>
         </header>
 
-        <!-- MAIN STAGE -->
         <section class="stage">
-            <span class="stage-title">Anxiety Index</span>
-
-            <div class="anxiety-display">
-                <span class="anxiety-score nosignal" id="anxietyScore">--</span>
-                <div class="anxiety-meta">
-                    <span class="anxiety-label" id="anxietyLabel">NO SIGNAL</span>
-                    <span class="anxiety-method" id="anxietyMethod"></span>
-                    <span class="model-badge warmup" id="modelBadge">WARMING UP (120s)</span>
+            <span class="stage-title">Neural Fluidity Index</span>
+            <div class="fluid-visualizer">
+                <div class="petal-wrap">
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                </div>
+                <div style="position: absolute; text-align: center;">
+                    <span style="font-size: 4rem; font-weight: 200; display: block;" id="flow-index">64</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; opacity: 0.5;" id="flow-state">CALM STATE</span>
                 </div>
             </div>
-
-            <div class="waveform-wrap" id="waveformWrap">
-                <canvas id="waveformCanvas"></canvas>
-            </div>
-
-            <div class="electrode-legend">
-                <div class="legend-item"><div class="legend-dot" style="background:#ff85a2;"></div>AF7</div>
-                <div class="legend-item"><div class="legend-dot" style="background:#ff004c;"></div>AF8</div>
-                <div class="legend-item"><div class="legend-dot" style="background:#00ffaa;"></div>TP9</div>
-                <div class="legend-item"><div class="legend-dot" style="background:#ffcc00;"></div>TP10</div>
-            </div>
-
             <div class="bottom-shelf">
-                <span id="bufferInfo">BUFFER: --</span>
-                <span id="sampleCount">SAMPLES: 0</span>
-                <span id="streamName">STREAM: --</span>
+                <span>BUFFER: 1024ms</span>
+                <span id="latencyText">LATENCY: 12ms</span>
+                <span>SENSITIVITY: HIGH</span>
             </div>
         </section>
 
-        <!-- SIDEBAR -->
         <aside class="sidebar">
-            <!-- Gamma -->
             <div class="metric-card">
                 <div class="metric-header">
-                    <span class="metric-label">Gamma (30-45Hz)</span>
-                    <span class="metric-unit">Active Focus</span>
+                    <span class="metric-label">Heart Rate</span>
+                    <div class="hr-circle"></div>
                 </div>
                 <div>
-                    <span class="metric-value" id="gammaVal">--</span>
-                    <span class="metric-value-sub">%</span>
+                    <span class="metric-value" id="hr-val">72</span>
+                    <span class="metric-unit">BPM</span>
                 </div>
-                <div class="mini-graph" id="gammaGraph"></div>
+                <div class="mini-graph" id="hr-graph"></div>
             </div>
 
-            <!-- Alpha -->
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-label">Gamma (32-100Hz)</span>
+                    <span class="metric-unit">High Focus</span>
+                </div>
+                <div>
+                    <span class="metric-value" id="gamma-val">12.4</span>
+                    <span class="metric-unit">μV</span>
+                </div>
+                <div class="mini-graph" id="gamma-graph"></div>
+            </div>
+
             <div class="metric-card">
                 <div class="metric-header">
                     <span class="metric-label">Alpha (8-13Hz)</span>
                     <span class="metric-unit">Relaxation</span>
                 </div>
                 <div>
-                    <span class="metric-value" id="alphaVal">--</span>
-                    <span class="metric-value-sub">%</span>
+                    <span class="metric-value" id="alpha-val">24.1</span>
+                    <span class="metric-unit">μV</span>
                 </div>
-                <div class="mini-graph" id="alphaGraph"></div>
+                <div class="mini-graph" id="alpha-graph"></div>
             </div>
 
-            <!-- Delta + Theta -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="metric-card">
                     <div class="metric-header">
-                        <span class="metric-label">Delta (1-4Hz)</span>
+                        <span class="metric-label">Delta (0.5-4Hz)</span>
+                        <span class="metric-unit">Deep Sleep</span>
                     </div>
                     <div>
-                        <span class="metric-value" id="deltaVal">--</span>
-                        <span class="metric-value-sub">%</span>
+                        <span class="metric-value" id="delta-val">4.2</span>
+                        <span class="metric-unit">μV</span>
                     </div>
-                    <div class="mini-graph" id="deltaGraph"></div>
+                    <div class="mini-graph" id="delta-graph"></div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-header">
                         <span class="metric-label">Theta (4-8Hz)</span>
+                        <span class="metric-unit">Drowsy</span>
                     </div>
                     <div>
-                        <span class="metric-value" id="thetaVal">--</span>
-                        <span class="metric-value-sub">%</span>
+                        <span class="metric-value" id="theta-val">8.9</span>
+                        <span class="metric-unit">μV</span>
                     </div>
-                    <div class="mini-graph" id="thetaGraph"></div>
-                </div>
-            </div>
-
-            <!-- Raw Electrode Voltages -->
-            <div class="electrode-grid">
-                <div class="electrode-card">
-                    <div class="electrode-name">AF7</div>
-                    <div class="electrode-value" id="af7Val">--</div>
-                </div>
-                <div class="electrode-card">
-                    <div class="electrode-name">AF8</div>
-                    <div class="electrode-value" id="af8Val">--</div>
-                </div>
-                <div class="electrode-card">
-                    <div class="electrode-name">TP9</div>
-                    <div class="electrode-value" id="tp9Val">--</div>
-                </div>
-                <div class="electrode-card">
-                    <div class="electrode-name">TP10</div>
-                    <div class="electrode-value" id="tp10Val">--</div>
-                </div>
-            </div>
-
-            <!-- Ratios -->
-            <div class="metric-card" style="opacity:0.6;">
-                <div class="metric-header">
-                    <span class="metric-label">Diagnostic Ratios</span>
-                </div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;display:flex;flex-direction:column;gap:2px;">
-                    <span>Theta/Beta: <span id="tbrVal">--</span></span>
-                    <span>Alpha/Sum: <span id="asrVal">--</span></span>
-                    <span>High-Freq: <span id="hfrVal">--</span></span>
+                    <div class="mini-graph" id="theta-graph"></div>
                 </div>
             </div>
         </aside>
 
-        <!-- CONTROLS -->
         <footer class="controls">
-            <button class="btn btn-primary" id="startBtn">&#9654; Start Session</button>
-            <button class="btn btn-danger" id="stopBtn" disabled>&#9632; Stop Session</button>
-            <button class="btn btn-secondary" id="exportBtn" disabled>&#8615; Export CSV</button>
-            <span class="session-file" id="sessionFile"></span>
+            <button class="csv-capture" id="capture-btn">Capture CSV Stream</button>
+            <div class="status-pill">
+                <span id="sessionFile">FILE_NAME: 2023_PETAL_EXP.CSV</span>
+            </div>
+            <div style="flex-grow: 1;"></div>
+            <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; opacity: 0.4;">NEURAL INTERFACE V1.0 - SYMMETRIC ENCRYPTION ENABLED</p>
         </footer>
     </main>
 
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <script>
-        // ===================================================================
-        // NeuroDrive Dashboard — Socket.IO client
-        // ===================================================================
+        const ids = ['hr', 'gamma', 'alpha', 'delta', 'theta'];
+        const graphs = ids.reduce((acc, id) => {
+            acc[id] = document.getElementById(`${id}-graph`);
+            return acc;
+        }, {});
 
-        const $ = id => document.getElementById(id);
-        const socket = io();
-
-        // --- State ---
-        let isStreaming = false;
-        let sessionCsvPath = null;
-        let history = [];
-
-        // --- Waveform ---
-        const WAVEFORM_LENGTH = 400;
-        const electrodeColors = {
-            af7: '#ff85a2',
-            af8: '#ff004c',
-            tp9: '#00ffaa',
-            tp10: '#ffcc00'
-        };
-        const electrodeKeys = ['af7', 'af8', 'tp9', 'tp10'];
-        const buffers = {
-            af7: new Array(WAVEFORM_LENGTH).fill(0),
-            af8: new Array(WAVEFORM_LENGTH).fill(0),
-            tp9: new Array(WAVEFORM_LENGTH).fill(0),
-            tp10: new Array(WAVEFORM_LENGTH).fill(0),
-        };
-
-        function initWaveform() {
-            const wrap = $('waveformWrap');
-            const canvas = $('waveformCanvas');
-            const dpr = window.devicePixelRatio || 1;
-            const rect = wrap.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            canvas.style.width = rect.width + 'px';
-            canvas.style.height = rect.height + 'px';
-        }
-
-        function drawWaveform() {
-            const canvas = $('waveformCanvas');
-            if (!canvas || canvas.width === 0) return;
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
-            const dpr = window.devicePixelRatio || 1;
-
-            ctx.clearRect(0, 0, w, h);
-
-            // Grid lines
-            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-            ctx.lineWidth = 1;
-            for (let i = 0; i < 5; i++) {
-                const y = (h / 5) * i;
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(w, y);
-                ctx.stroke();
-            }
-
-            const stepX = w / (WAVEFORM_LENGTH - 1);
-
-            electrodeKeys.forEach(key => {
-                const buf = buffers[key];
-                if (!buf || buf.length < 2) return;
-
-                ctx.strokeStyle = electrodeColors[key];
-                ctx.lineWidth = 2 * dpr;
-                ctx.beginPath();
-
-                // Find min/max for scaling
-                let min = Infinity, max = -Infinity;
-                for (let i = 0; i < buf.length; i++) {
-                    if (buf[i] < min) min = buf[i];
-                    if (buf[i] > max) max = buf[i];
-                }
-                const range = max - min || 1;
-                const mid = (max + min) / 2;
-                const electrodeIdx = electrodeKeys.indexOf(key);
-                const yOff = h * 0.15 + electrodeIdx * h * 0.2;
-                const amp = h * 0.15;
-
-                for (let i = 0; i < buf.length; i++) {
-                    const x = i * stepX;
-                    const y = yOff - ((buf[i] - mid) / (range * 0.5)) * amp;
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            });
-        }
-
-        // --- Mini bar graphs ---
-        const graphs = {};
-        ['gamma', 'alpha', 'delta', 'theta'].forEach(id => {
-            const el = $(id + 'Graph');
-            if (!el) return;
-            graphs[id] = el;
-            for (let i = 0; i < 18; i++) {
+        Object.values(graphs).forEach(graph => {
+            if (!graph) return;
+            for(let i=0; i<20; i++) {
                 const bar = document.createElement('div');
                 bar.className = 'bar';
-                bar.style.height = '30%';
-                el.appendChild(bar);
+                bar.style.height = Math.random() * 100 + '%';
+                graph.appendChild(bar);
             }
         });
 
-        function pushBar(graphId, value, scale) {
-            const el = graphs[graphId];
-            if (!el) return;
-            const bars = el.querySelectorAll('.bar');
-            // Shift left
-            for (let i = 0; i < bars.length - 1; i++) {
-                bars[i].style.height = bars[i + 1].style.height;
-                bars[i].style.opacity = bars[i + 1].style.opacity;
-            }
-            const last = bars[bars.length - 1];
-            const h = Math.min(100, Math.max(4, (Math.abs(value) / scale) * 100));
-            last.style.height = h + '%';
-            last.style.opacity = (h / 100) * 0.6 + 0.2;
+        function updateGraphsFromValue(graph, value, scale) {
+            if (!graph) return;
+            const bars = graph.querySelectorAll('.bar');
+            bars.forEach(bar => {
+                const h = Math.min(100, Math.abs(value) / scale * 100 + Math.random() * 10);
+                bar.style.height = h + '%';
+                bar.style.opacity = (h / 100) + 0.15;
+            });
         }
 
-        // --- Status ---
-        function setStatus(text) {
-            const el = $('statusText');
-            if (el) el.textContent = text;
-
-            const dot = $('liveDot');
-            if (!dot) return;
-            dot.classList.remove('connected', 'streaming');
-            if (/stream|active|connected/i.test(text)) {
-                dot.classList.add(isStreaming ? 'streaming' : 'connected');
+        function setStatus(message) {
+            const text = String(message || '');
+            const statusEl = document.getElementById('statusText');
+            if (statusEl) statusEl.textContent = text;
+            const liveDot = document.getElementById('liveDot');
+            if (liveDot) {
+                if (/connect|stream|ready/i.test(text)) {
+                    liveDot.style.background = '#00ffaa';
+                } else if (/waiting|unavailable|searching/i.test(text)) {
+                    liveDot.style.background = '#ffcc00';
+                } else {
+                    liveDot.style.background = '#ff004c';
+                }
             }
         }
 
-        // --- Metrics handler ---
         function handleMetrics(payload) {
             if (!payload) return;
+            const hr = Number(payload.heart_rate ?? payload.hr ?? 0);
+            const gamma = Number(payload.gamma ?? 0);
+            const alpha = Number(payload.alpha ?? 0);
+            const delta = Number(payload.delta ?? 0);
+            const theta = Number(payload.theta ?? 0);
+            const anxiety = Number(payload.anxiety ?? 0);
+            const anxiety_label = String(payload.anxiety_label ?? '');
 
-            // Raw electrode voltages
-            const af7 = parseFloat(payload.af7) || 0;
-            const af8 = parseFloat(payload.af8) || 0;
-            const tp9 = parseFloat(payload.tp9) || 0;
-            const tp10 = parseFloat(payload.tp10) || 0;
-            const rightAux = parseFloat(payload.right_aux) || 0;
+            const el = id => document.getElementById(id);
+            if (el('hr-val')) el('hr-val').innerText = Number.isFinite(hr) ? hr.toFixed(0) : '0';
+            if (el('gamma-val')) el('gamma-val').innerText = Number.isFinite(gamma) ? gamma.toFixed(1) : '0.0';
+            if (el('alpha-val')) el('alpha-val').innerText = Number.isFinite(alpha) ? alpha.toFixed(1) : '0.0';
+            if (el('delta-val')) el('delta-val').innerText = Number.isFinite(delta) ? delta.toFixed(1) : '0.0';
+            if (el('theta-val')) el('theta-val').innerText = Number.isFinite(theta) ? theta.toFixed(1) : '0.0';
 
-            // Band powers
-            const delta = parseFloat(payload.delta) || 0;
-            const theta = parseFloat(payload.theta) || 0;
-            const alpha = parseFloat(payload.alpha) || 0;
-            const beta = parseFloat(payload.beta) || 0;
-            const gamma = parseFloat(payload.gamma) || 0;
+            updateGraphsFromValue(graphs.hr, hr, 120);
+            updateGraphsFromValue(graphs.gamma, gamma, 40);
+            updateGraphsFromValue(graphs.alpha, alpha, 40);
+            updateGraphsFromValue(graphs.delta, delta, 10);
+            updateGraphsFromValue(graphs.theta, theta, 15);
 
-            // Computed metrics
-            const anxiety = parseFloat(payload.anxiety) || 0;
-            const anxietyLabel = String(payload.anxiety_label || '');
-            const anxietyMethod = String(payload.anxiety_method || '');
-
-            // Update electrode displays
-            if ($('af7Val')) $('af7Val').textContent = af7.toFixed(1);
-            if ($('af8Val')) $('af8Val').textContent = af8.toFixed(1);
-            if ($('tp9Val')) $('tp9Val').textContent = tp9.toFixed(1);
-            if ($('tp10Val')) $('tp10Val').textContent = tp10.toFixed(1);
-
-            // Update band power displays
-            if ($('gammaVal')) $('gammaVal').textContent = gamma.toFixed(1);
-            if ($('alphaVal')) $('alphaVal').textContent = alpha.toFixed(1);
-            if ($('deltaVal')) $('deltaVal').textContent = delta.toFixed(1);
-            if ($('thetaVal')) $('thetaVal').textContent = theta.toFixed(1);
-
-            // Bar graphs
-            pushBar('gamma', gamma, 40);
-            pushBar('alpha', alpha, 40);
-            pushBar('delta', delta, 25);
-            pushBar('theta', theta, 25);
-
-            // Anxiety display
-            const scoreEl = $('anxietyScore');
-            const labelEl = $('anxietyLabel');
-            const methodEl = $('anxietyMethod');
-
-            if (scoreEl) {
-                const isSignal = anxietyLabel !== 'no signal';
-                scoreEl.textContent = isSignal ? anxiety.toFixed(0) : '--';
-                scoreEl.classList.remove('low', 'medium', 'high', 'nosignal');
-                if (isSignal) {
-                    if (anxiety < 33) scoreEl.classList.add('low');
-                    else if (anxiety < 66) scoreEl.classList.add('medium');
-                    else scoreEl.classList.add('high');
-                } else {
-                    scoreEl.classList.add('nosignal');
-                }
+            // Flow index & state derived from anxiety
+            const flowIndexEl = document.getElementById('flow-index');
+            const flowStateEl = document.getElementById('flow-state');
+            if (flowIndexEl) {
+                const idx = Math.max(0, Math.min(100, Math.round(70 - anxiety * 0.5)));
+                flowIndexEl.innerText = String(idx);
             }
-            if (labelEl) labelEl.textContent = anxietyLabel.toUpperCase();
-            if (methodEl) methodEl.textContent = anxietyMethod;
-
-            // Model state badge
-            const badgeEl = $('modelBadge');
-            if (badgeEl) {
-                const modelActive = String(payload.model_active || 'qeeg');
-                badgeEl.classList.remove('qeeg', 'camber_rf', 'warmup');
-                if (modelActive === 'camber_rf') {
-                    badgeEl.textContent = 'CAMBER RANDOMFOREST';
-                    badgeEl.classList.add('camber_rf');
-                } else {
-                    badgeEl.textContent = 'QEEG HEURISTIC';
-                    badgeEl.classList.add('qeeg');
-                    // Show warmup only if ML model is present but not ready
-                    if (anxietyMethod.includes('qEEG') || anxietyMethod.includes('band-ratio')) {
-                        badgeEl.textContent = 'WARMING UP (120s)';
-                        badgeEl.classList.add('warmup');
-                    }
-                }
+            if (flowStateEl) {
+                const state = anxiety < 30 ? 'CALM STATE' : (anxiety < 60 ? 'ENGAGED' : 'STRESSED');
+                flowStateEl.innerText = anxiety_label || state;
             }
-
-            // Diagnostic ratios
-            if ($('tbrVal')) $('tbrVal').textContent = parseFloat(payload.theta_beta_ratio).toFixed(3);
-            if ($('asrVal')) $('asrVal').textContent = parseFloat(payload.alpha_sum_ratio).toFixed(3);
-            if ($('hfrVal')) $('hfrVal').textContent = parseFloat(payload.high_freq_ratio).toFixed(3);
-
-            // Bottom shelf
-            if ($('sampleCount')) $('sampleCount').textContent = 'SAMPLES: ' + (payload.sample_count || 0);
-            if ($('streamName')) $('streamName').textContent = 'STREAM: ' + (payload.stream_name || '--');
-
-            // Waveform buffers
-            electrodeKeys.forEach(key => {
-                const val = parseFloat(payload[key]) || 0;
-                const buf = buffers[key];
-                buf.push(val);
-                buf.shift();
-            });
-
-            // Store in history for CSV export
-            history.push(payload);
-            if (history.length > 10000) history.shift();
-
-            // Update waveform periodically (every 4th call for performance)
-            if (payload.sequence % 4 === 0) drawWaveform();
         }
 
-        // --- Socket.IO events ---
-        socket.on('connect', () => {
-            setStatus('CONNECTED');
-        });
+        function handleSessionSaved(payload) {
+            const sessionEl = document.getElementById('sessionFile');
+            if (!payload) return;
+            const csvPath = payload.csv_path ?? payload.path ?? 'unknown.csv';
+            if (sessionEl) sessionEl.textContent = `FILE_NAME: ${csvPath}`;
+            setStatus(`Session saved: ${csvPath}`);
+            alert(`Session saved to ${csvPath}`);
+        }
 
-        socket.on('disconnect', () => {
-            setStatus('DISCONNECTED');
-            isStreaming = false;
-            updateButtonStates();
-        });
+        function requestEndSessionFromBridge() {
+            if (window.bridge && typeof window.bridge.requestEndSession === 'function') {
+                setStatus('Ending session and saving CSV...');
+                try { window.bridge.requestEndSession(); } catch (e) { console.error(e); }
+            }
+        }
 
-        socket.on('status_update', data => {
-            const status = data.status || '';
-            if (/connected|stream/i.test(status)) {
-                isStreaming = true;
-                setStatus('STREAMING');
-            } else if (/waiting|searching/i.test(status)) {
-                setStatus(status.toUpperCase());
+        const captureBtn = document.getElementById('capture-btn');
+        captureBtn.addEventListener('click', () => {
+            if (window.bridge) {
+                requestEndSessionFromBridge();
+                captureBtn.innerText = 'SAVING...';
             } else {
-                setStatus(status.toUpperCase());
-                if (/closed|stopped|idle/i.test(status)) {
-                    isStreaming = false;
-                }
-            }
-            updateButtonStates();
-        });
-
-        socket.on('metrics_update', handleMetrics);
-
-        // --- Controls ---
-        function updateButtonStates() {
-            const startBtn = $('startBtn');
-            const stopBtn = $('stopBtn');
-            const exportBtn = $('exportBtn');
-
-            if (startBtn) startBtn.disabled = isStreaming;
-            if (stopBtn) stopBtn.disabled = !isStreaming;
-            if (exportBtn) exportBtn.disabled = history.length === 0;
-        }
-
-        $('startBtn').addEventListener('click', async () => {
-            try {
-                const res = await fetch('/api/start', { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    isStreaming = true;
-                    updateButtonStates();
-                    setStatus('STARTING...');
-                }
-            } catch (e) {
-                console.error('Start failed:', e);
+                captureBtn.innerText = 'CAPTURING...';
+                captureBtn.style.background = '#fff';
+                setTimeout(() => {
+                    captureBtn.innerText = 'CAPTURE CSV STREAM';
+                    captureBtn.style.background = 'var(--peony-mid)';
+                    alert("CSV Stream 'petal_session_data.csv' exported to workspace (simulated).");
+                }, 2000);
             }
         });
 
-        $('stopBtn').addEventListener('click', async () => {
-            try {
-                const res = await fetch('/api/stop', { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    isStreaming = false;
-                    updateButtonStates();
-                    setStatus('STOPPED');
-                }
-            } catch (e) {
-                console.error('Stop failed:', e);
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof QWebChannel === 'undefined' || typeof qt === 'undefined') {
+                setStatus('Waiting for Qt web channel...');
+                return;
             }
-        });
 
-        $('exportBtn').addEventListener('click', () => {
-            if (history.length === 0) return;
-            const header = [
-                'sequence', 'timestamp_iso', 'timestamp_epoch',
-                'af7', 'af8', 'tp9', 'tp10', 'right_aux',
-                'delta', 'theta', 'alpha', 'beta', 'gamma',
-'anxiety', 'anxiety_label', 'anxiety_method',
-                'theta_beta_ratio', 'alpha_sum_ratio', 'high_freq_ratio',
-                'stream_name'
-            ];
-            const rows = history.map(r =>
-                header.map(h => {
-                    const v = r[h];
-                    if (typeof v === 'string' && v.includes(',')) return '"' + v + '"';
-                    return v !== undefined ? v : '';
-                }).join(',')
-            );
-            const csv = [header.join(','), ...rows].join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a');
-            const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            a.href = URL.createObjectURL(blob);
-            a.download = 'neurodrive_export_' + ts + '.csv';
-            a.click();
-            URL.revokeObjectURL(a.href);
-        });
-
-        // --- Theme toggle ---
-        function applyTheme(theme) {
-            const root = document.documentElement;
-            if (theme === 'light') {
-                root.style.setProperty('--void', '#faf5f7');
-                root.style.setProperty('--peony-light', '#32111a');
-                root.style.setProperty('--peony-mid', '#7c0a2a');
-                root.style.setProperty('--peony-deep', '#4a0018');
-                root.style.setProperty('--satin-sheen', 'rgba(0,0,0,0.1)');
-                document.querySelectorAll('.nebulous-container .blob').forEach(b => b.style.display = 'none');
-            } else {
-                root.style.setProperty('--void', '#0a0205');
-                root.style.setProperty('--peony-light', '#ffd1dc');
-                root.style.setProperty('--peony-mid', '#ff85a2');
-                root.style.setProperty('--peony-deep', '#7c0a2a');
-                root.style.setProperty('--satin-sheen', 'rgba(255,255,255,0.15)');
-                document.querySelectorAll('.nebulous-container .blob').forEach(b => b.style.display = '');
-            }
-            localStorage.setItem('neurodrive-theme', theme);
-        }
-
-        $('themeToggle').addEventListener('click', () => {
-            const curr = localStorage.getItem('neurodrive-theme') || 'dark';
-            applyTheme(curr === 'dark' ? 'light' : 'dark');
-        });
-
-        // --- Init ---
-        window.addEventListener('resize', () => {
-            initWaveform();
-            drawWaveform();
-        });
-
-        applyTheme(localStorage.getItem('neurodrive-theme') || 'dark');
-
-        // Fetch current status on load
-        fetch('/api/status')
-            .then(r => r.json())
-            .then(s => {
-                if (s.latest_payload) {
-                    handleMetrics(s.latest_payload);
+            new QWebChannel(qt.webChannelTransport, (channel) => {
+                window.bridge = channel.objects.bridge;
+                if (!window.bridge) {
+                    setStatus('Bridge unavailable.');
+                    return;
                 }
-                if (s.is_running) {
-                    isStreaming = true;
-                    setStatus('STREAMING');
-                    updateButtonStates();
-                }
-            })
-            .catch(() => {});
 
-        // Initial waveform setup
-        setTimeout(() => {
-            initWaveform();
-            // Pre-fill with some idle noise
-            electrodeKeys.forEach(key => {
-                const buf = buffers[key];
-                for (let i = 0; i < WAVEFORM_LENGTH; i++) {
-                    buf[i] = Math.sin(i * 0.05) * 2 + (Math.random() - 0.5) * 1;
+                try {
+                    window.bridge.metricsChanged.connect(handleMetrics);
+                    window.bridge.statusChanged.connect(setStatus);
+                    window.bridge.sessionSaved.connect(handleSessionSaved);
+                } catch (e) {
+                    console.error('Error connecting to bridge signals', e);
                 }
+
+                setStatus('Bridge connected. Waiting for data...');
             });
-            drawWaveform();
-        }, 200);
-
-        updateButtonStates();
+        });
     </script>
 </body>
 </html>

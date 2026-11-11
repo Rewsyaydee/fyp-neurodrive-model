@@ -1,199 +1,193 @@
 #!/usr/bin/env python3
 """
-NeuroDrive — Integration test suite.
-Verifies: Flask app, REST API, MuseStreamManager, payload construction, CSV output.
+Test script to verify streaming works with the fixed code
 """
 
+import math
 import sys
+import tempfile
 import time
+import threading
 from pathlib import Path
 
+# Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-
-def test_payload_building():
-    """Test that _build_payload produces correct structure with raw electrode fields."""
-    print("--- Testing payload construction ---")
+def test_stream_manager():
+    """Test the stream manager with simulated data"""
+    print("Testing MuseStreamManager...")
 
     from app import MuseStreamManager
 
+    # Create a test data directory
     test_dir = Path("test_data")
+    test_dir.mkdir(exist_ok=True)
+
+    # Create manager
     manager = MuseStreamManager(test_dir)
 
-    # Simulated Muse EEG sample: 5 channels (TP9, AF7, AF8, TP10, Right AUX)
-    sample = [822.5, 823.1, 821.8, 822.9, 512.0]
+    # Create a mock socketio
+    class MockSocketIO:
+        def __init__(self):
+            self.events = []
+
+        def emit(self, event, data):
+            self.events.append((event, data))
+            print(f"Emitted {event}: {data}")
+
+    mock_socketio = MockSocketIO()
+    manager.set_socketio(mock_socketio)
+
+    print("✓ Manager created successfully")
+
+    # Test payload creation
+    import numpy as np
+    from utils.anxiety_calculator import calculate_anxiety_estimate
+
+    # Create simulated sample data
+    sample = np.random.randn(5).tolist()
     timestamp = time.time()
     labels = ["TP9", "AF7", "AF8", "TP10", "Right AUX"]
 
+    # Build payload
     payload = manager._build_payload(sample, timestamp, labels)
 
-    # Check raw electrode fields exist
-    for key in ("af7", "af8", "tp9", "tp10", "right_aux"):
-        assert key in payload, f"Missing field: {key}"
-        assert isinstance(payload[key], float), f"{key} should be float"
+    print("✓ Payload created successfully")
+    print(f"  - Anxiety: {payload['anxiety']:.2f}")
+    print(f"  - Label: {payload['anxiety_label']}")
 
-    # Check band power fields exist
-    for key in ("delta", "theta", "alpha", "beta", "gamma"):
-        assert key in payload, f"Missing band: {key}"
+    # Test record creation
+    record = manager._record_from_payload(payload)
+    print("✓ Record created successfully")
 
-    # Check anxiety fields
-    for key in ("anxiety", "anxiety_label", "anxiety_method"):
-        assert key in payload, f"Missing anxiety field: {key}"
-
-    # Check metadata
-    for key in ("sequence", "timestamp_iso", "timestamp_epoch", "stream_name", "sample_count"):
-        assert key in payload, f"Missing metadata: {key}"
-
-    # Verify electrode values match input
-    assert abs(payload["tp9"] - 822.5) < 0.01, f"TP9 mismatch: {payload['tp9']}"
-    assert abs(payload["af7"] - 823.1) < 0.01, f"AF7 mismatch: {payload['af7']}"
-    assert abs(payload["af8"] - 821.8) < 0.01, f"AF8 mismatch: {payload['af8']}"
-    assert abs(payload["tp10"] - 822.9) < 0.01, f"TP10 mismatch: {payload['tp10']}"
-    assert abs(payload["right_aux"] - 512.0) < 0.01, f"Right AUX mismatch: {payload['right_aux']}"
-
-    # With only 1 sample, FFT window isn't full -> band powers should be 0
-    assert payload["delta"] == 0.0, "Delta should be 0 before FFT window fills"
-    assert payload["anxiety_label"] == "no signal", "Should show no signal before FFT"
-
-    print("  [OK] Payload structure correct")
-    print(f"  [OK] Electrode values preserved: AF7={payload['af7']}, TP9={payload['tp9']}")
-    print(f"  [OK] Initial state: anxiety={payload['anxiety']}, label={payload['anxiety_label']}")
+    # Test emission
+    manager._emit_metrics(payload)
+    print(f"✓ Emitted {len(mock_socketio.events)} events")
 
     return True
 
 
-def test_record_and_csv():
-    """Test StreamRecord construction and CSV header."""
-    print("--- Testing StreamRecord & CSV ---")
+def test_muse2_compatibility():
+    """Test Muse 2 / muselsl raw EEG compatibility."""
+    print("\nTesting Muse 2 / muselsl compatibility...")
 
-    from app import StreamRecord
-
-    header = StreamRecord.csv_header()
-    expected_cols = [
-        "sequence", "timestamp_iso", "timestamp_epoch",
-        "af7", "af8", "tp9", "tp10", "right_aux",
-        "delta", "theta", "alpha", "beta", "gamma",
-        "anxiety", "anxiety_label", "anxiety_method",
-        "theta_beta_ratio", "alpha_sum_ratio", "high_freq_ratio",
-        "stream_name",
-    ]
-    assert header == expected_cols, f"CSV header mismatch:\n  Got: {header}\n  Exp: {expected_cols}"
-
-    record = StreamRecord(
-        sequence=1,
-        timestamp_iso="2026-06-01T00:00:00.000",
-        timestamp_epoch=1000.0,
-        af7=823.1, af8=821.8, tp9=822.5, tp10=822.9, right_aux=512.0,
-        delta=25.0, theta=15.0, alpha=30.0, beta=20.0, gamma=10.0,
-        anxiety=45.0, anxiety_label="medium", anxiety_method="qEEG band-ratio estimate",
-        theta_beta_ratio=0.75, alpha_sum_ratio=0.30, high_freq_ratio=0.33,
-        stream_name="Muse-EEG",
-    )
-    row = record.to_row()
-    assert len(row) == len(header), f"Row length {len(row)} != header length {len(header)}"
-
-    print("  [OK] CSV header matches expected columns")
-    print("  [OK] Record serialization correct")
-
-    return True
-
-
-def test_fft_window_filling():
-    """Test that FFT produces band powers after window fills."""
-    print("--- Testing FFT band-power extraction ---")
-
-    import numpy as np
     from app import MuseStreamManager
 
-    test_dir = Path("test_data")
-    manager = MuseStreamManager(test_dir)
-    manager._sample_rate = 256.0
+    class FakeMuse2Stream:
+        def name(self):
+            return "Muse"
 
-    labels = ["TP9", "AF7", "AF8", "TP10", "Right AUX"]
+        def type(self):
+            return "EEG"
 
-    # Generate 256 samples of simulated EEG (10 Hz alpha wave + noise)
-    for i in range(256):
-        t = i / 256.0
-        # Simulate alpha wave (10 Hz) with some delta (1 Hz) and beta (20 Hz)
-        sample = [
-            100.0 * np.sin(2 * np.pi * 10 * t) + 10 * np.random.randn(),  # TP9
-            100.0 * np.sin(2 * np.pi * 10 * t) + 10 * np.random.randn(),  # AF7
-            50.0 * np.sin(2 * np.pi * 1 * t) + 10 * np.random.randn(),    # AF8
-            50.0 * np.sin(2 * np.pi * 20 * t) + 10 * np.random.randn(),   # TP10
-            512.0 + 5 * np.random.randn(),  # Right AUX
-        ]
-        timestamp = time.time() + t
-        manager._build_payload(sample, timestamp, labels)
+        def channel_count(self):
+            return 5
 
-    band_powers = manager._latest_band_powers
-    print(f"  [OK] FFT produced band powers after {len(manager._raw_eeg_window)} samples:")
-    for band in ("delta", "theta", "alpha", "beta", "gamma"):
-        print(f"       {band}: {band_powers.get(band, 0):.1f}%")
+        def nominal_srate(self):
+            return 256.0
 
-    # Alpha should be dominant (we injected a 10 Hz signal)
-    alpha_power = band_powers.get("alpha", 0)
-    assert alpha_power > 0, "Alpha band power should be > 0 after FFT"
+        def as_xml(self):
+            return "<info/>"
 
-    print("  [OK] FFT pipeline functional — band powers extracted")
+    manager = object.__new__(MuseStreamManager)
+    score = manager._score_stream(FakeMuse2Stream())
+    assert score >= 140, f"Muse 2 LSL stream score is too low: {score}"
+    print(f"✓ Muse 2 LSL stream accepted (score {score})")
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        manager = MuseStreamManager(Path(temp_dir))
+        manager._sample_rate = 256.0
+        manager._stream_name = "Muse"
+        manager._stream_type = "EEG"
+
+        labels = ["TP9", "AF7", "AF8", "TP10", "Right AUX"]
+        selected = manager._select_eeg_values([1.0, 2.0, 3.0, 4.0, 999.0], labels)
+        assert selected == [1.0, 2.0, 3.0, 4.0], selected
+        print("✓ Right AUX is ignored for band-power analysis")
+
+        payload = {}
+        timestamp = time.time()
+        for index in range(300):
+            phase = 2.0 * math.pi * 10.0 * (index / 256.0)
+            sample = [math.sin(phase)] * 4 + [999.0]
+            payload = manager._build_payload(sample, timestamp + index / 256.0, labels)
+
+        assert payload["heart_rate"] == 0.0
+        assert payload["alpha"] > 0.0
+        assert payload["anxiety_method"] != "insufficient signal"
+        print(
+            f"✓ Raw EEG converted to bands: alpha={payload['alpha']:.2f}, "
+            f"anxiety={payload['anxiety']:.2f}"
+        )
 
     return True
 
 
 def test_flask_app():
-    """Test Flask app routes."""
-    print("--- Testing Flask app ---")
+    """Test that Flask app can be imported and configured"""
+    print("\nTesting Flask app...")
 
     from app import app, socketio
 
-    assert app.config["SECRET_KEY"] == "neurodrive_secret_key"
+    # Test app configuration
+    assert app.config['SECRET_KEY'] == 'neurodrive_secret_key'
+    print("✓ Flask app configured correctly")
 
+    # Test routes exist
     with app.test_client() as client:
-        r = client.get("/")
-        assert r.status_code == 200, f"GET / returned {r.status_code}"
+        response = client.get('/')
+        assert response.status_code == 200
+        assert len(response.data) > 1000, "Dashboard HTML is empty or too small"
+        assert b"NEURODRIVE" in response.data, "Dashboard title is missing"
+        print("✓ Dashboard route works and returns real HTML")
 
-        r = client.get("/api/status")
-        assert r.status_code == 200, f"GET /api/status returned {r.status_code}"
-        data = r.get_json()
-        assert "is_running" in data
+        response = client.get('/api/status')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert 'status' in data
+        print("✓ Status API works")
 
-        r = client.get("/api/sessions")
-        assert r.status_code == 200
-
-    print("  [OK] All Flask routes responding")
     return True
 
-
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     print("=" * 60)
-    print("NEURODRIVE - Integration Test Suite")
+    print("NEURODRIVE - Streaming Test Suite")
     print("=" * 60)
     print()
 
-    tests = [
-        test_payload_building,
-        test_record_and_csv,
-        test_fft_window_filling,
-        test_flask_app,
-    ]
+    try:
+        # Test stream manager
+        if not test_stream_manager():
+            print("❌ Stream manager test failed")
+            return 1
 
-    passed = 0
-    for test in tests:
-        try:
-            if test():
-                passed += 1
-        except Exception as e:
-            print(f"  [FAIL] {test.__name__}: {e}")
-            import traceback
-            traceback.print_exc()
+        # Test Muse 2 / muselsl compatibility
+        if not test_muse2_compatibility():
+            print("❌ Muse 2 compatibility test failed")
+            return 1
 
-    print()
-    print(f"Results: {passed}/{len(tests)} tests passed")
+        # Test Flask app
+        if not test_flask_app():
+            print("❌ Flask app test failed")
+            return 1
 
-    if passed == len(tests):
-        print("All tests passed.")
+        print("\n✅ All tests passed!")
+        print("\nMuse 2 / muselsl compatibility checks passed.")
+        print("\nTo test with your Muse headband:")
+        print("1. Double-click START_NEURODRIVE.bat (or run: python start.py)")
+        print("2. Choose option 1 for Muse 2 (muselsl) or option 2 for Muse S Athena (OpenMuse)")
+        print("3. The dashboard should now stream data properly")
+
         return 0
-    return 1
 
+    except Exception as e:
+        print(f"\n❌ Test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())

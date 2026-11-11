@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import random
+import webbrowser
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,7 @@ TARGET_HZ = 20.0
 TARGET_INTERVAL = 1.0 / TARGET_HZ
 DATA_DIR_NAME = "data"
 CSV_PREFIX = "neurodrive_simulation"
+DASHBOARD_URL = "http://localhost:5001"
 
 
 @dataclass
@@ -34,6 +36,7 @@ class StreamRecord:
     alpha: float
     beta: float
     gamma: float
+    heart_rate: float
     anxiety: float
     anxiety_label: str
     anxiety_method: str
@@ -52,6 +55,7 @@ class StreamRecord:
             f"{self.alpha:.6f}",
             f"{self.beta:.6f}",
             f"{self.gamma:.6f}",
+            f"{self.heart_rate:.6f}",
             f"{self.anxiety:.6f}",
             self.anxiety_label,
             self.anxiety_method,
@@ -78,28 +82,35 @@ class SimulationStreamManager:
         self._stream_name = "Muse Simulation"
         self._stream_type = "Simulated"
         self._is_running = False
+        self._thread: Optional[threading.Thread] = None
         self._socketio = None
         self._status = "Simulation Ready"
 
         # Simulation parameters
         self._base_anxiety = 30.0
         self._anxiety_variation = 20.0
-
+        self._base_hr = 70.0
+        self._hr_variation = 15.0
 
     def set_socketio(self, socketio):
         self._socketio = socketio
 
     def start(self) -> None:
         if not self._is_running:
+            self._stop_event.clear()
             self._is_running = True
-            threading.Thread(target=self._run, daemon=True).start()
+            self._thread = threading.Thread(target=self._run, daemon=True)
+            self._thread.start()
 
     def stop(self) -> None:
         self._stop_event.set()
         self._is_running = False
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=10.0)
+        self._thread = None
 
     def _run(self) -> None:
-        self._stop_event.clear()
         self._records.clear()
         self._current_sequence = 0
         self._csv_path = None
@@ -133,6 +144,10 @@ class SimulationStreamManager:
         arousal += random.uniform(-5, 5)
         arousal = max(0, min(100, arousal))
 
+        # Simulate heart rate correlated with arousal.
+        hr = self._base_hr + (arousal / 100) * 30
+        hr += random.uniform(-5, 5)
+
         # Alpha increases with relaxation; theta and fast-wave power rise
         # during higher arousal/stress states.
         alpha = 10.0 + (100 - arousal) / 10.0 + random.uniform(-2, 2)
@@ -163,6 +178,7 @@ class SimulationStreamManager:
             "alpha": float(alpha),
             "beta": float(beta),
             "gamma": float(gamma),
+            "heart_rate": float(hr),
             "anxiety": float(estimate.score),
             "anxiety_label": estimate.label,
             "anxiety_method": estimate.method,
@@ -183,6 +199,7 @@ class SimulationStreamManager:
             alpha=payload["alpha"],
             beta=payload["beta"],
             gamma=payload["gamma"],
+            heart_rate=payload["heart_rate"],
             anxiety=payload["anxiety"],
             anxiety_label=payload["anxiety_label"],
             anxiety_method=payload["anxiety_method"],
@@ -208,6 +225,7 @@ class SimulationStreamManager:
             "alpha",
             "beta",
             "gamma",
+            "heart_rate",
             "anxiety",
             "anxiety_label",
             "anxiety_method",
@@ -225,15 +243,8 @@ class SimulationStreamManager:
 
 # Flask App Initialization
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
+app.config['SECRET_KEY'] = 'neurodrive_simulation_key'
 socketio = SocketIO(app, cors_allowed_origins="*")
-
-@app.after_request
-def add_no_cache_headers(response):
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
 
 # Global simulation manager
 simulation_manager = None
@@ -340,6 +351,16 @@ def build_app_paths() -> Tuple[Path, Path]:
     return root, root / DATA_DIR_NAME
 
 
+def open_dashboard() -> None:
+    """Open the simulation dashboard in the default browser."""
+    if os.environ.get("NEURODRIVE_NO_BROWSER", "").strip().lower() in {"1", "true", "yes"}:
+        return
+    try:
+        webbrowser.open(DASHBOARD_URL)
+    except Exception as exc:
+        print(f"Could not open browser automatically: {exc}")
+
+
 def main() -> int:
     global simulation_manager
 
@@ -349,19 +370,23 @@ def main() -> int:
 
     print(f"Starting {APP_NAME} Web Server (Simulation Mode)")
     print("=" * 50)
-    print("⚠️  RUNNING IN SIMULATION MODE")
+    print("WARNING: RUNNING IN SIMULATION MODE")
     print("   No real headband connected")
     print("   Data is generated for demonstration")
     print("=" * 50)
-    print(f"Dashboard will be available at: http://localhost:5001")
-    print(f"Press Ctrl+C to stop")
+    print(f"Dashboard will be available at: {DASHBOARD_URL}")
+    print("Press Ctrl+C to stop")
     print()
 
     # Start simulation automatically
     simulation_manager.start()
+    threading.Timer(1.0, open_dashboard).start()
 
     # Run the Flask app on different port
-    socketio.run(app, host='0.0.0.0', port=5001, debug=False)
+    try:
+        socketio.run(app, host='0.0.0.0', port=5001, debug=False, allow_unsafe_werkzeug=True)
+    finally:
+        simulation_manager.stop()
 
 
 if __name__ == "__main__":

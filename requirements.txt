@@ -1,25 +1,38 @@
-# EEG STREAMING: This project uses OpenMuse for Muse Athena BLE streaming.
-# Install OpenMuse separately (not on PyPI):
+# NOTE: These pins target Python 3.11/3.12 and include the Muse 2 (muselsl)
+# stack. numpy==1.26.4 and several other pins have no Python 3.13/3.14 wheels,
+# so `pip install -r requirements.txt` fails on newer Python versions.
+# For Muse S Athena on Python 3.13/3.14, use requirements-athena.txt instead.
+#
+# EEG STREAMING:
+# Muse 2 / legacy Muse: muselsl (installed below)
+# Muse S Athena: OpenMuse (install separately, not on PyPI):
 # pip install https://github.com/DominiqueMakowski/OpenMuse/zipball/main
 #
 # USAGE: Run python app.py to launch the web server
-# Manual: OpenMuse stream --address 00:55:DA:BB:C4:8E (in one terminal)
-#         python app.py (in another terminal)
+# Manual Muse 2: muselsl stream --address 00:55:DA:B8:24:74 --model legacy
+#                python app.py
+# Manual Athena: OpenMuse stream --address 00:55:DA:BB:C4:8E
+#                python app.py
 
 # Web Framework
 Flask==3.0.0
 Flask-SocketIO==5.3.6
 python-socketio==5.10.0
 
+# EEG Streaming Backend (Muse 2 / legacy Muse)
+# muselsl 2.5.3 expects the bitstring 4.x bytes= API
+muselsl==2.5.3
+bitstring==4.2.3
+
 # EEG Data Processing
 pylsl>=1.17.0,<2
 numpy==1.26.4
 scipy==1.13.1
-
-# Machine Learning (for anxiety model)
 scikit-learn==1.5.1
-joblib==1.4.2
+mne==1.8.0
+mne-lsl>=1.0.0
+pandas==2.2.2
 
-# Data Visualization & Reporting (optional, used by withouttheadband.py)
+# Data Visualization & Reporting
 matplotlib==3.9.2
 reportlab==4.2.2

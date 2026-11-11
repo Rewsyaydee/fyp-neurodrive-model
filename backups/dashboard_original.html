@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURODRIVE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,700;1,500&family=JetBrains+Mono:wght@300;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --peony-light: #ffd1dc;
+            --peony-mid: #ff85a2;
+            --peony-deep: #7c0a2a;
+            --satin-sheen: rgba(255, 255, 255, 0.15);
+            --void: #0a0205;
+            --surface: rgba(255, 255, 255, 0.02);
+            --surface-strong: rgba(255, 255, 255, 0.05);
+            --header-line: rgba(255, 133, 162, 0.2);
+            --text-muted: rgba(255, 209, 220, 0.6);
+            --fluid-gradient: linear-gradient(135deg, #ff85a2 0%, #7c0a2a 100%);
+        }
+
+        body.light-mode {
+            --peony-light: #32111a;
+            --peony-mid: #b72455;
+            --peony-deep: #7c0a2a;
+            --satin-sheen: rgba(124, 10, 42, 0.18);
+            --void: #fff7fa;
+            --surface: rgba(255, 255, 255, 0.72);
+            --surface-strong: rgba(255, 255, 255, 0.92);
+            --header-line: rgba(124, 10, 42, 0.16);
+            --text-muted: rgba(50, 17, 26, 0.62);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: crosshair;
+        }
+
+        body {
+            background-color: var(--void);
+            color: var(--peony-light);
+            font-family: 'Instrument Sans', sans-serif;
+            overflow-x: hidden;
+            overflow-y: auto;
+            min-height: 100vh;
+            height: auto;
+            width: 100vw;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 24px 0;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- NEBULOUS BACKGROUND --- */
+        .nebulous-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            filter: blur(120px);
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .blob {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--peony-mid) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: drift 25s infinite alternate ease-in-out;
+        }
+
+        .blob:nth-child(2) {
+            background: radial-gradient(circle, var(--peony-deep) 0%, transparent 70%);
+            width: 800px;
+            height: 800px;
+            right: -100px;
+            top: -100px;
+            animation-duration: 35s;
+        }
+
+        @keyframes drift {
+            from { transform: translate(-10%, -10%) scale(1); }
+            to { transform: translate(20%, 20%) scale(1.2); }
+        }
+
+        /* --- LAYOUT STRUCTURE --- */
+        main {
+            width: 94vw;
+            min-height: calc(100vh - 48px);
+            height: auto;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            grid-template-rows: auto 1fr auto;
+            gap: 24px;
+            z-index: 1;
+        }
+
+        header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--header-line);
+        }
+
+        .brand h1 {
+            font-weight: 700;
+            font-size: 0.8rem;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--peony-mid);
+        }
+
+        .brand p {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .theme-toggle {
+            width: 44px;
+            height: 44px;
+            border: 1px solid var(--satin-sheen);
+            border-radius: 50%;
+            background: var(--surface-strong);
+            color: var(--peony-light);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--peony-mid);
+            color: var(--peony-mid);
+            transform: translateY(-2px);
+        }
+
+        .theme-toggle svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* --- SATIN FLUIDITY CONTAINER --- */
+        .stage {
+            position: relative;
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--satin-sheen);
+            border-radius: 40px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .stage:hover {
+            transform: scale(1.005);
+            border-color: var(--peony-mid);
+        }
+
+        .stage-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 40px;
+        }
+
+        .fluid-visualizer {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- THE SATIN PETAL WAVE --- */
+        .petal-wrap {
+            position: relative;
+            width: 400px;
+            height: 400px;
+        }
+
+        .petal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--peony-mid);
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+            animation: morph 8s infinite ease-in-out;
+            opacity: 0.4;
+            mix-blend-mode: screen;
+        }
+
+        .petal:nth-child(2) {
+            animation-delay: -2s;
+            border-color: var(--peony-light);
+            transform: rotate(45deg);
+        }
+
+        .petal:nth-child(3) {
+            animation-delay: -4s;
+            background: rgba(255, 133, 162, 0.05);
+            border-color: var(--peony-deep);
+            transform: rotate(90deg);
+        }
+
+        @keyframes morph {
+            0%, 100% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; transform: rotate(0deg) scale(1); }
+            33% { border-radius: 50% 50% 20% 80% / 25% 80% 20% 75%; transform: rotate(120deg) scale(1.1); }
+            66% { border-radius: 67% 33% 47% 53% / 37% 20% 80% 63%; transform: rotate(240deg) scale(0.9); }
+        }
+
+        /* --- DATA CHANNELS --- */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-self: start;
+        }
+
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--satin-sheen);
+            padding: 24px;
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.4s ease;
+        }
+
+        .metric-card:hover {
+            background: var(--surface-strong);
+            transform: translateY(-2px);
+        }
+
+        .metric-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--peony-mid);
+        }
+
+        .metric-unit {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+
+        /* --- CONTROL PANEL --- */
+        .controls {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+            .signal-card,
+            .log-card {
+                gap: 16px;
+            }
+
+            .health-list,
+            .log-list {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .health-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 12px;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.03);
+            }
+
+            .health-name {
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.72rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .health-pill {
+                padding: 4px 10px;
+                border-radius: 999px;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.64rem;
+                letter-spacing: 0.08em;
+                border: 1px solid transparent;
+            }
+
+            .health-pill.ok {
+                color: #44ff9a;
+                background: rgba(68, 255, 154, 0.1);
+                border-color: rgba(68, 255, 154, 0.25);
+            }
+
+            .health-pill.warn {
+                color: #ffb84d;
+                background: rgba(255, 184, 77, 0.1);
+                border-color: rgba(255, 184, 77, 0.25);
+            }
+
+            .health-note {
+                font-size: 0.72rem;
+                color: var(--text-muted);
+                line-height: 1.5;
+            }
+
+            .log-list {
+                max-height: 220px;
+                overflow-y: auto;
+                padding-right: 4px;
+            }
+
+            .log-item {
+                list-style: none;
+                padding: 10px 12px;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(255, 255, 255, 0.04);
+            }
+
+            .log-meta {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.64rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--text-muted);
+                margin-bottom: 6px;
+            }
+
+            .log-message {
+                font-size: 0.8rem;
+                line-height: 1.5;
+            }
+
+            .log-item.info { border-left: 3px solid #7dd3fc; }
+            .log-item.ok { border-left: 3px solid #44ff9a; }
+            .log-item.warn { border-left: 3px solid #ffb84d; }
+            .log-item.error { border-left: 3px solid #ff5f7a; }
+
+        .control-btn {
+            background: var(--surface-strong);
+            border: 1px solid var(--satin-sheen);
+            color: var(--peony-light);
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-family: 'Instrument Sans', sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: var(--peony-mid);
+            border-color: var(--peony-mid);
+            color: var(--void);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* --- STATUS INDICATOR --- */
+        .status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--surface-strong);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #44ff44;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* --- ANXIETY LEVEL VISUALIZATION --- */
+        .anxiety-visual {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        .anxiety-circle {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 0deg,
+                #44ff44 0deg,
+                #ffaa44 120deg,
+                #ff4444 240deg,
+                #44ff44 360deg
+            );
+            animation: rotate 10s linear infinite;
+        }
+
+        .anxiety-inner {
+            position: absolute;
+            top: 10%;
+            left: 10%;
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            background: var(--void);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* --- CHART CONTAINER --- */
+        .chart-container {
+            grid-column: 1 / -1;
+            background: var(--surface);
+            border: 1px solid var(--satin-sheen);
+            border-radius: 40px;
+            padding: 20px;
+            height: 200px;
+            display: none;
+        }
+
+        .chart-container.active {
+            display: block;
+        }
+
+        /* --- STREAM INFO --- */
+        .stream-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="nebulous-container">
+        <div class="blob"></div>
+        <div class="blob"></div>
+    </div>
+
+    <main>
+        <header>
+            <div class="brand">
+                <h1>NeuroDrive</h1>
+                <p id="timestamp">Ready to connect...</p>
+            </div>
+            <div class="header-actions">
+                <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode" title="Switch to light mode">
+                    <svg id="themeIcon" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2"></path>
+                        <path d="M12 20v2"></path>
+                        <path d="m4.93 4.93 1.41 1.41"></path>
+                        <path d="m17.66 17.66 1.41 1.41"></path>
+                        <path d="M2 12h2"></path>
+                        <path d="M20 12h2"></path>
+                        <path d="m6.34 17.66-1.41 1.41"></path>
+                        <path d="m19.07 4.93-1.41 1.41"></path>
+                    </svg>
+                </button>
+                <div class="status">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Disconnected</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="stage">
+            <div class="stream-info" id="streamInfo">No stream connected</div>
+            <div class="stage-title">Real-time EEG Analysis</div>
+            <div class="fluid-visualizer">
+                <div class="petal-wrap" id="petalWrap">
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="metric-card">
+                <div class="metric-label">Anxiety Level</div>
+                <div class="metric-value" id="anxietyValue">--</div>
+                <div class="metric-unit" id="anxietyLabel">Awaiting data...</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Heart Rate</div>
+                <div class="metric-value" id="heartRateValue">--</div>
+                <div class="metric-unit">BPM</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Alpha Waves</div>
+                <div class="metric-value" id="alphaValue">--</div>
+                <div class="metric-unit">Hz</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Delta Waves</div>
+                <div class="metric-value" id="deltaValue">--</div>
+                <div class="metric-unit">Hz</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Theta Waves</div>
+                <div class="metric-value" id="thetaValue">--</div>
+                <div class="metric-unit">Hz</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Gamma Waves</div>
+                <div class="metric-value" id="gammaValue">--</div>
+                <div class="metric-unit">Hz</div>
+            </div>
+
+            <div class="metric-card signal-card">
+                <div class="metric-label">Signal Health</div>
+                <div class="health-note">OK means a live numeric value is being received. NO SIGNAL means the stream is missing or still stabilizing.</div>
+                <div class="health-list">
+                    <div class="health-row">
+                        <span class="health-name">Delta</span>
+                        <span class="health-pill warn" id="deltaState">NO SIGNAL</span>
+                    </div>
+                    <div class="health-row">
+                        <span class="health-name">Theta</span>
+                        <span class="health-pill warn" id="thetaState">NO SIGNAL</span>
+                    </div>
+                    <div class="health-row">
+                        <span class="health-name">Alpha</span>
+                        <span class="health-pill warn" id="alphaState">NO SIGNAL</span>
+                    </div>
+                    <div class="health-row">
+                        <span class="health-name">Gamma</span>
+                        <span class="health-pill warn" id="gammaState">NO SIGNAL</span>
+                    </div>
+                    <div class="health-row">
+                        <span class="health-name">Heart Rate</span>
+                        <span class="health-pill warn" id="heartState">NO SIGNAL</span>
+                    </div>
+                    <div class="health-row">
+                        <span class="health-name">Anxiety</span>
+                        <span class="health-pill warn" id="anxietyState">NO SIGNAL</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card log-card">
+                <div class="metric-label">Live Logs</div>
+                <div class="health-note">Recent connection, status, and data events from the dashboard.</div>
+                <ul class="log-list" id="eventLog"></ul>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" id="startBtn">Start Session</button>
+            <button class="control-btn" id="stopBtn" disabled>Stop Session</button>
+            <button class="control-btn" id="toggleChartBtn">Toggle Chart</button>
+            <button class="control-btn" id="exportBtn">Export Session</button>
+        </div>
+
+        <div class="chart-container" id="chartContainer">
+            <canvas id="eegChart"></canvas>
+        </div>
+    </main>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let isConnected = false;
+        let isStreaming = false;
+        let chart = null;
+        let chartData = {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Delta',
+                    data: [],
+                    borderColor: '#ff85a2',
+                    backgroundColor: 'rgba(255, 133, 162, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Theta',
+                    data: [],
+                    borderColor: '#ffd1dc',
+                    backgroundColor: 'rgba(255, 209, 220, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Alpha',
+                    data: [],
+                    borderColor: '#7c0a2a',
+                    backgroundColor: 'rgba(124, 10, 42, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Gamma',
+                    data: [],
+                    borderColor: '#ff4488',
+                    backgroundColor: 'rgba(255, 68, 136, 0.1)',
+                    tension: 0.4
+                }
+            ]
+        };
+
+        // DOM elements
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const timestamp = document.getElementById('timestamp');
+        const streamInfo = document.getElementById('streamInfo');
+        const petalWrap = document.getElementById('petalWrap');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const toggleChartBtn = document.getElementById('toggleChartBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const chartContainer = document.getElementById('chartContainer');
+        const chartCanvas = document.getElementById('eegChart');
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+
+        // Value displays
+        const anxietyValue = document.getElementById('anxietyValue');
+        const anxietyLabel = document.getElementById('anxietyLabel');
+        const heartRateValue = document.getElementById('heartRateValue');
+        const alphaValue = document.getElementById('alphaValue');
+        const deltaValue = document.getElementById('deltaValue');
+        const thetaValue = document.getElementById('thetaValue');
+        const gammaValue = document.getElementById('gammaValue');
+        const deltaState = document.getElementById('deltaState');
+        const thetaState = document.getElementById('thetaState');
+        const alphaState = document.getElementById('alphaState');
+        const gammaState = document.getElementById('gammaState');
+        const heartState = document.getElementById('heartState');
+        const anxietyState = document.getElementById('anxietyState');
+        const eventLog = document.getElementById('eventLog');
+
+        function formatMetric(value, digits, fallback = '--') {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return fallback;
+            }
+            return numeric.toFixed(digits);
+        }
+
+        function addLog(message, level = 'info') {
+            if (!eventLog) {
+                return;
+            }
+
+            const entry = document.createElement('li');
+            entry.className = `log-item ${level}`;
+
+            const meta = document.createElement('div');
+            meta.className = 'log-meta';
+            const type = document.createElement('span');
+            type.textContent = level.toUpperCase();
+            const time = document.createElement('span');
+            time.textContent = new Date().toLocaleTimeString();
+            meta.appendChild(type);
+            meta.appendChild(time);
+
+            const text = document.createElement('div');
+            text.className = 'log-message';
+            text.textContent = message;
+
+            entry.appendChild(meta);
+            entry.appendChild(text);
+            eventLog.prepend(entry);
+
+            while (eventLog.children.length > 8) {
+                eventLog.removeChild(eventLog.lastElementChild);
+            }
+        }
+
+        function setSignalState(element, value) {
+            if (!element) {
+                return false;
+            }
+
+            const numeric = Number(value);
+            const isHealthy = Number.isFinite(numeric) && numeric > 0;
+            element.textContent = isHealthy ? 'OK' : 'NO SIGNAL';
+            element.className = `health-pill ${isHealthy ? 'ok' : 'warn'}`;
+            return isHealthy;
+        }
+
+        function updateSignalHealth(data) {
+            const deltaOk = setSignalState(deltaState, data.delta);
+            const thetaOk = setSignalState(thetaState, data.theta);
+            const alphaOk = setSignalState(alphaState, data.alpha);
+            const gammaOk = setSignalState(gammaState, data.gamma);
+            const heartOk = setSignalState(heartState, data.heart_rate);
+            const anxietyOk = setSignalState(anxietyState, String(data.anxiety_label || '').toLowerCase() === 'no signal' ? NaN : data.anxiety);
+
+            return { deltaOk, thetaOk, alphaOk, gammaOk, heartOk, anxietyOk };
+        }
+
+        const sunIcon = `
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="m4.93 4.93 1.41 1.41"></path>
+            <path d="m17.66 17.66 1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="m6.34 17.66-1.41 1.41"></path>
+            <path d="m19.07 4.93-1.41 1.41"></path>
+        `;
+        const moonIcon = `
+            <path d="M12 3a6 6 0 0 0 9 7.5 9 9 0 1 1-9-7.5Z"></path>
+        `;
+
+        function applyTheme(theme) {
+            const isLight = theme === 'light';
+            document.body.classList.toggle('light-mode', isLight);
+            themeIcon.innerHTML = isLight ? moonIcon : sunIcon;
+            themeToggle.setAttribute('aria-label', isLight ? 'Switch to dark mode' : 'Switch to light mode');
+            themeToggle.setAttribute('title', isLight ? 'Switch to dark mode' : 'Switch to light mode');
+            localStorage.setItem('neurodrive-theme', theme);
+
+            if (chart) {
+                const textColor = isLight ? '#32111a' : '#ffd1dc';
+                const gridColor = isLight ? 'rgba(124, 10, 42, 0.12)' : 'rgba(255, 209, 220, 0.1)';
+                chart.options.plugins.legend.labels.color = textColor;
+                chart.options.scales.x.ticks.color = textColor;
+                chart.options.scales.x.grid.color = gridColor;
+                chart.options.scales.y.ticks.color = textColor;
+                chart.options.scales.y.grid.color = gridColor;
+                chart.update('none');
+            }
+        }
+
+        applyTheme(localStorage.getItem('neurodrive-theme') || 'dark');
+    hydrateFromStatus();
+
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            isConnected = true;
+            updateStatus('Connected to server', true);
+            addLog('Socket connected to the NeuroDrive server.', 'ok');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            isConnected = false;
+            isStreaming = false;
+            updateStatus('Disconnected', false);
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            addLog('Socket disconnected from the NeuroDrive server.', 'error');
+        });
+
+        socket.on('status_update', (data) => {
+            console.log('Status update:', data.status);
+            statusText.textContent = data.status;
+            addLog(data.status, data.status.includes('Connected') ? 'ok' : 'warn');
+
+            if (data.status.includes('Connected')) {
+                updateStatus('Streaming', true);
+                isStreaming = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else if (data.status.includes('Waiting')) {
+                updateStatus('Waiting for stream...', false);
+            }
+        });
+
+        socket.on('metrics_update', (data) => {
+            console.log('Metrics update:', data);
+            updateMetrics(data);
+            updateVisualization(data);
+            addToChart(data);
+            updateSignalHealth(data);
+
+            if (data.sequence && data.sequence % 10 === 0) {
+                addLog(
+                    `Seq ${data.sequence}: anxiety ${formatMetric(data.anxiety, 1)} | delta ${formatMetric(data.delta, 2)} | theta ${formatMetric(data.theta, 2)}`,
+                    'info'
+                );
+            }
+        });
+
+        async function hydrateFromStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                if (status.latest_payload) {
+                    updateMetrics(status.latest_payload);
+                    updateVisualization(status.latest_payload);
+                    updateSignalHealth(status.latest_payload);
+                    initChart();
+                    addToChart(status.latest_payload);
+                    addLog('Loaded latest cached payload from /api/status.', 'info');
+                }
+            } catch (error) {
+                console.warn('Unable to hydrate dashboard from status:', error);
+            }
+        }
+
+        // Helper functions
+        function updateStatus(text, connected) {
+            statusText.textContent = text;
+            if (connected) {
+                statusDot.classList.add('connected');
+            } else {
+                statusDot.classList.remove('connected');
+            }
+        }
+
+        function updateMetrics(data) {
+            const anxietyLabelText = String(data.anxiety_label || '').toLowerCase();
+            anxietyValue.textContent = anxietyLabelText === 'no signal'
+                ? '--'
+                : formatMetric(data.anxiety, 1);
+            anxietyLabel.textContent = anxietyLabelText === 'no signal'
+                ? 'Awaiting signal...'
+                : (data.anxiety_label || 'Calculating...');
+            heartRateValue.textContent = formatMetric(data.heart_rate, 0);
+            alphaValue.textContent = formatMetric(data.alpha, 2);
+            deltaValue.textContent = formatMetric(data.delta, 2);
+            thetaValue.textContent = formatMetric(data.theta, 2);
+            gammaValue.textContent = formatMetric(data.gamma, 2);
+
+            timestamp.textContent = `Stream: ${data.stream_name || 'Unknown'} | Seq: ${data.sequence || 0}`;
+
+            if (data.stream_name) {
+                streamInfo.textContent = `Connected to: ${data.stream_name}`;
+            }
+
+            updateSignalHealth(data);
+        }
+
+        function updateVisualization(data) {
+            // Update petal animation based on anxiety
+            const petals = petalWrap.querySelectorAll('.petal');
+            const anxietyLevel = data.anxiety || 0;
+            const intensity = Math.min(anxietyLevel / 100, 1);
+
+            petals.forEach((petal, index) => {
+                const hue = 350 - (intensity * 60); // Red to yellow
+                const scale = 1 + (intensity * 0.2);
+                const opacity = 0.4 + (intensity * 0.4);
+
+                petal.style.borderColor = `hsl(${hue}, 70%, 60%)`;
+                petal.style.transform = `rotate(${index * 45}deg) scale(${scale})`;
+                petal.style.opacity = opacity;
+            });
+        }
+
+        // Chart functions
+        function initChart() {
+            if (chart) return;
+
+            const ctx = chartCanvas.getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#ffd1dc'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#ffd1dc' },
+                            grid: { color: 'rgba(255, 209, 220, 0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#ffd1dc' },
+                            grid: { color: 'rgba(255, 209, 220, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function addToChart(data) {
+            if (!chart) return;
+
+            const now = new Date().toLocaleTimeString();
+
+            // Keep only last 20 data points
+            if (chartData.labels.length > 20) {
+                chartData.labels.shift();
+                chartData.datasets.forEach(dataset => dataset.data.shift());
+            }
+
+            chartData.labels.push(now);
+            chartData.datasets[0].data.push(data.delta || 0);
+            chartData.datasets[1].data.push(data.theta || 0);
+            chartData.datasets[2].data.push(data.alpha || 0);
+            chartData.datasets[3].data.push(data.gamma || 0);
+
+            chart.update('none'); // Update without animation for performance
+        }
+
+        // Button event handlers
+        startBtn.addEventListener('click', async () => {
+            if (!isConnected) return;
+
+            try {
+                const response = await fetch('/api/start', { method: 'POST' });
+                const result = await response.json();
+                console.log(result);
+            } catch (error) {
+                console.error('Error starting streaming:', error);
+            }
+        });
+
+        stopBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/stop', { method: 'POST' });
+                const result = await response.json();
+                console.log(result);
+                isStreaming = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            } catch (error) {
+                console.error('Error stopping streaming:', error);
+            }
+        });
+
+        toggleChartBtn.addEventListener('click', () => {
+            chartContainer.classList.toggle('active');
+            if (chartContainer.classList.contains('active')) {
+                initChart();
+            }
+        });
+
+        exportBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/sessions');
+                const data = await response.json();
+
+                if (data.sessions && data.sessions.length > 0) {
+                    const latestSession = data.sessions[0];
+                    window.open(`/data/${latestSession.filename}`, '_blank');
+                } else {
+                    alert('No sessions available to export');
+                }
+            } catch (error) {
+                console.error('Error exporting session:', error);
+            }
+        });
+
+        themeToggle.addEventListener('click', () => {
+            const nextTheme = document.body.classList.contains('light-mode') ? 'dark' : 'light';
+            applyTheme(nextTheme);
+        });
+
+        // Auto-update timestamp
+        setInterval(() => {
+            if (isStreaming) {
+                timestamp.textContent += ` | ${new Date().toLocaleTimeString()}`;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
